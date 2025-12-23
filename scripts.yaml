@@ -1,0 +1,32 @@
+brf:
+  alias: Fading Hue/Saturation Changes
+  use_blueprint:
+    path: TheHolyRoger/fading-random-colour-changes.yaml
+    input:
+      entities:
+      - light.tz3000_riwp3k79_ts0505a_light
+  icon: mdi:globe-light
+speak_llm_response:
+  alias: Speak LLM Response
+  fields:
+    prompt:
+      description: The text to send to the AI
+      example: Tell me a joke
+  sequence:
+  - action: conversation.process
+    data:
+      agent_id: conversation.chatgpt
+      text: '{{ prompt ~ '' Be extremely concise. Limit response to one sentence where
+        possible.'' }}'
+    response_variable: agent_response
+  - action: tts.speak
+    target:
+      entity_id:
+      - tts.home_assistant_cloud
+    data:
+      media_player_entity_id: media_player.friday_m5stack_atom_echo_241368
+      message: '{{ agent_response.response.speech.plain.speech | regex_replace(find=''[*#_]'',
+        replace='''', ignorecase=False) }}'
+  description: Send a Query to our LLM and Speak the Response on your chosen Media
+    Player or Satellite Assistant
+  icon: mdi:speaker-message

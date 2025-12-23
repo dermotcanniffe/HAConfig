@@ -1,0 +1,595 @@
+- id: '1696844192496'
+  name: On a call
+  entities:
+    sensor.on_call_button_report_interval:
+      state_class: total
+      unit_of_measurement: s
+      device_class: duration
+      friendly_name: On Call Button Report Interval
+      state: '16'
+    switch.bot_0aa7:
+      last_run_success:
+      switch_mode: false
+      assumed_state: true
+      device_class: switch
+      friendly_name: Dave BOTtista
+      state: 'off'
+  icon: mdi:headset
+  metadata: {}
+- id: '1696864692514'
+  name: Off a Call
+  entities:
+    switch.bot_0aa7:
+      last_run_success:
+      switch_mode: false
+      assumed_state: true
+      device_class: switch
+      friendly_name: Dave BOTtista
+      state: 'off'
+  icon: mdi:headset-off
+  metadata: {}
+- id: '1696866314196'
+  name: Kitchen High
+  entities:
+    light.kitchen_spot_group:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: color_temp
+      brightness: 254
+      color_temp_kelvin: 3012
+      color_temp: 332
+      hs_color:
+      - 27.806
+      - 56.57
+      rgb_color:
+      - 255
+      - 177
+      - 110
+      xy_color:
+      - 0.496
+      - 0.383
+      entity_id:
+      - light.tz3000_dbou1ap4_ts0505a_light
+      - light.kitchenspotlight2_light
+      - light.kitchenspotlight3_light
+      icon: mdi:lightbulb-group
+      friendly_name: Kitchen Spot Group
+      supported_features: 40
+      state: 'on'
+  icon: mdi:lightbulb-auto
+  metadata:
+    light.kitchen_spot_group:
+      entity_only: true
+- id: '1696866383505'
+  name: Kitchen Lights Off
+  entities:
+    light.tz3000_dbou1ap4_ts0505a_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      friendly_name: KitchenSpotlight1 Light
+      supported_features: 40
+      off_with_transition: false
+      off_brightness: 254
+      state: 'off'
+    light.kitchenspotlight2_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      friendly_name: Kitchen Spot Light 2
+      supported_features: 40
+      off_with_transition: false
+      off_brightness: 254
+      state: 'off'
+    light.kitchenspotlight3_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      friendly_name: KitchenSpotlight3 Light
+      supported_features: 40
+      off_with_transition: false
+      off_brightness: 254
+      state: 'off'
+  icon: mdi:lightbulb-auto-outline
+  metadata: {}
+- id: '1696873709612'
+  name: Kitchen Party
+  entities:
+    light.tz3000_dbou1ap4_ts0505a_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 196
+      - 35.294
+      rgb_color:
+      - 165
+      - 231
+      - 255
+      xy_color:
+      - 0.236
+      - 0.304
+      off_with_transition: false
+      off_brightness:
+      friendly_name: KitchenSpotlight1 Light
+      supported_features: 40
+      state: 'on'
+    light.kitchenspotlight2_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 196
+      - 35.294
+      rgb_color:
+      - 165
+      - 231
+      - 255
+      xy_color:
+      - 0.236
+      - 0.304
+      off_with_transition: false
+      off_brightness:
+      friendly_name: Kitchen Spot Light 2
+      supported_features: 40
+      state: 'on'
+    light.kitchenspotlight3_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 196
+      - 35.294
+      rgb_color:
+      - 165
+      - 231
+      - 255
+      xy_color:
+      - 0.236
+      - 0.304
+      off_with_transition: false
+      off_brightness:
+      friendly_name: KitchenSpotlight3 Light
+      supported_features: 40
+      state: 'on'
+    light.dining_light_1_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 115.981
+      - 81.961
+      rgb_color:
+      - 60
+      - 255
+      - 46
+      xy_color:
+      - 0.194
+      - 0.705
+      off_with_transition: false
+      off_brightness:
+      friendly_name: Dining Light 1 Light
+      supported_features: 40
+      state: 'on'
+    light.dining_light_2_light_2:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 115.981
+      - 81.961
+      rgb_color:
+      - 60
+      - 255
+      - 46
+      xy_color:
+      - 0.194
+      - 0.705
+      off_with_transition: false
+      off_brightness:
+      friendly_name: Dining Light 2 Light
+      supported_features: 40
+      state: 'on'
+  icon: mdi:lightbulb
+  metadata: {}
+- id: '1696873790206'
+  name: Kitchen Low
+  entities:
+    light.tz3000_dbou1ap4_ts0505a_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      off_with_transition: false
+      off_brightness:
+      friendly_name: KitchenSpotlight1 Light
+      supported_features: 40
+      color_mode: color_temp
+      brightness: 38
+      color_temp_kelvin: 5025
+      color_temp: 199
+      hs_color:
+      - 27.028
+      - 18.905
+      rgb_color:
+      - 255
+      - 228
+      - 206
+      xy_color:
+      - 0.371
+      - 0.349
+      state: 'on'
+    light.kitchenspotlight2_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      off_with_transition: false
+      off_brightness:
+      friendly_name: Kitchen Spot Light 2
+      supported_features: 40
+      color_mode: color_temp
+      brightness: 38
+      color_temp_kelvin: 5025
+      color_temp: 199
+      hs_color:
+      - 27.028
+      - 18.905
+      rgb_color:
+      - 255
+      - 228
+      - 206
+      xy_color:
+      - 0.371
+      - 0.349
+      state: 'on'
+    light.kitchenspotlight3_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      off_with_transition: false
+      off_brightness:
+      friendly_name: KitchenSpotlight3 Light
+      supported_features: 40
+      color_mode: color_temp
+      brightness: 38
+      color_temp_kelvin: 5025
+      color_temp: 199
+      hs_color:
+      - 27.028
+      - 18.905
+      rgb_color:
+      - 255
+      - 228
+      - 206
+      xy_color:
+      - 0.371
+      - 0.349
+      state: 'on'
+  icon: mdi:lightbulb
+  metadata: {}
+- id: '1734104946989'
+  name: Dining Light Half
+  entities:
+    binary_sensor.dining_light_switch_battery_low:
+      device_class: battery
+      friendly_name: Dining Light Switch Battery Low
+      state: 'off'
+    update.dining_light_switch_firmware:
+      auto_update: false
+      display_precision: 0
+      installed_version: 1.12.0
+      in_progress: true
+      latest_version: 1.12.0
+      release_summary:
+      release_url:
+      skipped_version:
+      title:
+      update_percentage: 0
+      device_class: firmware
+      entity_picture: https://brands.home-assistant.io/_/tapo/icon.png
+      friendly_name: Dining Light Switch Firmware
+      supported_features: 21
+      state: 'off'
+    sensor.dining_light_switch_report_interval:
+      state_class: total
+      unit_of_measurement: s
+      device_class: duration
+      friendly_name: Dining Light Switch Report Interval
+      state: '16'
+    light.dining_light_group:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: color_temp
+      brightness: 135
+      color_temp_kelvin: 2000
+      color_temp: 500
+      hs_color:
+      - 30.601
+      - 94.547
+      rgb_color:
+      - 255
+      - 137
+      - 14
+      xy_color:
+      - 0.598
+      - 0.383
+      entity_id:
+      - light.dining_light_1_light
+      - light.dining_light_2_light_2
+      - light.dining_light_3_light
+      icon: mdi:lightbulb-group
+      friendly_name: Dining Light Group
+      supported_features: 40
+      state: 'on'
+  icon: mdi:ceiling-light-multiple-outline
+  metadata:
+    light.dining_light_group:
+      entity_only: true
+- id: '1734105061574'
+  name: Dining Light Full
+  entities:
+    binary_sensor.dining_light_switch_battery_low:
+      device_class: battery
+      friendly_name: Dining Light Switch Battery Low
+      state: 'off'
+    update.dining_light_switch_firmware:
+      auto_update: false
+      display_precision: 0
+      installed_version: 1.12.0
+      in_progress: true
+      latest_version: 1.12.0
+      release_summary:
+      release_url:
+      skipped_version:
+      title:
+      update_percentage: 0
+      device_class: firmware
+      entity_picture: https://brands.home-assistant.io/_/tapo/icon.png
+      friendly_name: Dining Light Switch Firmware
+      supported_features: 21
+      state: 'off'
+    sensor.dining_light_switch_report_interval:
+      state_class: total
+      unit_of_measurement: s
+      device_class: duration
+      friendly_name: Dining Light Switch Report Interval
+      state: '16'
+    light.dining_light_group:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: color_temp
+      brightness: 254
+      color_temp_kelvin: 2000
+      color_temp: 500
+      hs_color:
+      - 30.601
+      - 94.547
+      rgb_color:
+      - 255
+      - 137
+      - 14
+      xy_color:
+      - 0.598
+      - 0.383
+      entity_id:
+      - light.dining_light_1_light
+      - light.dining_light_2_light_2
+      - light.dining_light_3_light
+      icon: mdi:lightbulb-group
+      friendly_name: Dining Light Group
+      supported_features: 40
+      state: 'on'
+  icon: mdi:ceiling-light-multiple
+  metadata:
+    light.dining_light_group:
+      entity_only: true
+- id: '1734116638593'
+  name: Office Lights Off
+  entities:
+    light.office_overhead_light_light:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode:
+      brightness:
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      rgb_color:
+      xy_color:
+      off_with_transition: false
+      off_brightness: 254
+      friendly_name: Office Overhead Light Light
+      supported_features: 40
+      state: 'off'
+    light.office_lightstrip:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 20.177
+      - 88.627
+      rgb_color:
+      - 255
+      - 105
+      - 29
+      xy_color:
+      - 0.635996
+      - 0.345998
+      off_with_transition: false
+      off_brightness:
+      friendly_name: Office LightStrip
+      supported_features: 40
+      state: 'on'
+    input_boolean.videolightonoff:
+      editable: true
+      icon: mdi:spotlight-beam
+      friendly_name: VideoLightOnOff
+      state: 'off'
+    switch.dermodesk_plugboard_switch_3:
+      icon: mdi:panorama-wide-angle-outline
+      friendly_name: DermoDesk Samsung Monitor
+      state: 'on'
+  icon: mdi:ceiling-light-outline
+  metadata:
+    input_boolean.videolightonoff:
+      entity_only: true
+    switch.dermodesk_plugboard_switch_3:
+      entity_only: true
+- id: '1734128681311'
+  name: Dining Night Time
+  entities:
+    light.dining_light_group:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      min_mireds: 153
+      max_mireds: 500
+      supported_color_modes:
+      - color_temp
+      - xy
+      color_mode: xy
+      brightness: 254
+      color_temp_kelvin:
+      color_temp:
+      hs_color:
+      - 38.504
+      - 99.608
+      rgb_color:
+      - 255
+      - 164
+      - 1
+      xy_color:
+      - 0.565
+      - 0.414
+      entity_id:
+      - light.dining_light_1_light
+      - light.dining_light_2_light_2
+      - light.dining_light_3_light
+      icon: mdi:lightbulb-group
+      friendly_name: Dining Light Group
+      supported_features: 40
+      state: 'on'
+  icon: mdi:vanity-light
+  metadata:
+    light.dining_light_group:
+      entity_only: true
+- id: '1734913949705'
+  name: Living Room Lamps On
+  entities:
+    input_boolean.christmas_lights:
+      editable: true
+      icon: mdi:string-lights
+      friendly_name: Christmas Lights
+      state: 'on'
+    switch.plugd_switch_3:
+      friendly_name: PlugDelta Switch
+      state: 'on'
+  icon: mdi:string-lights
+  metadata:
+    input_boolean.christmas_lights:
+      entity_only: true
+- id: '1734916752114'
+  name: Living Room Lamps Off
+  entities:
+    input_boolean.christmas_lights:
+      editable: true
+      icon: mdi:string-lights
+      friendly_name: Christmas Lights
+      state: 'off'
+    switch.plugd_switch_3:
+      friendly_name: PlugDelta Switch
+      state: 'off'
+  metadata:
+    input_boolean.christmas_lights:
+      entity_only: true
+  icon: mdi:string-lights

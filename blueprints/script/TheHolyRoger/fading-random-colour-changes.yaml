@@ -1,0 +1,134 @@
+blueprint:
+  name: Fading Hue/Saturation Changes
+  description: Gradually change light colour
+  domain: script
+  input:
+    entities:
+      name: Entities
+      description: Which entities to control. Input as YAML list
+      selector:
+        object: {}
+    max_value_hue:
+      name: Max Hue Value
+      description: Max Hue Value
+      default: 360.0
+      selector:
+        number:
+          min: 0.0
+          max: 360.0
+          step: 0.001
+          mode: box
+    min_value_hue:
+      name: Min Hue Value
+      description: Min Hue Value
+      default: 0.001
+      selector:
+        number:
+          min: 0.0
+          max: 360.0
+          step: 0.001
+          mode: box
+    max_value_sat:
+      name: Max Saturation
+      description: Max Saturation
+      default: 100.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.001
+          mode: box
+    min_value_sat:
+      name: Min Saturation
+      description: Min Saturation
+      default: 28
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.001
+          mode: box
+    step_value_hue:
+      name: Hue Step value
+      description: Step value to change each time - is divided by 1000
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 1000.0
+          step: 1.0
+          mode: box
+    step_value_sat:
+      name: Saturation Step value
+      description: Step value to change each time - is divided by 1000
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 1000.0
+          step: 1.0
+          mode: box
+    use_negatives:
+      name: Use negatives
+      description: Use negative value changes
+      default: true
+      selector:
+        boolean: {}
+    default_value_hue:
+      name: Default Hue Value
+      description: Default Starting Hue Value
+      default: 240
+      selector:
+        number:
+          min: 0.0
+          max: 360.0
+          step: 0.001
+          mode: box
+    default_value_sat:
+      name: Default Saturation
+      description: Default Starting Saturation
+      default: 69
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.001
+          mode: box
+  source_url: https://community.home-assistant.io/t/fading-random-colour-changes/407861
+sequence:
+- service: light.turn_on
+  data:
+    entity_id: '{{ entities }}'
+    hs_color: "{% set data = namespace(hs_col=[]) %}\n{% if state_attr(entities|first,
+      'hs_color') == None %}\n  {{ default_colour }}\n{% else %}\n  {% for hs in ['hue',
+      'sat'] %}\n    {% if hs == 'hue' %}\n      {% set step_value = step_value_hue
+      %}\n    {% else %}\n      {% set step_value = step_value_sat %}\n    {% endif
+      %}\n    {% if use_negatives %}\n      {% set rand_add = ([(range(0, step_value)
+      | random), 0-(range(0, step_value) | random)] | random) / 1000 %}\n    {% else
+      %}\n      {% set rand_add = (range(0, step_value) | random) / 1000 %}\n    {%
+      endif %}\n    {% set cur_hs = state_attr(entities|first, 'hs_color') | list
+      %}\n    {% if hs == 'hue' %}\n      {% set val = cur_hs[0] %}\n      {% set
+      max_value_hs = max_value_hue %}\n      {% set min_value_hs = min_value_hue %}\n
+      \     {% set default_value_hs = default_value_hue %}\n    {% else %}\n      {%
+      set val = cur_hs[1] %}\n      {% set max_value_hs = max_value_sat %}\n      {%
+      set min_value_hs = min_value_sat %}\n      {% set default_value_hs = default_value_sat
+      %}\n    {% endif %}\n    {% if float(val) + rand_add <= max_value_hs and float(val)
+      + rand_add > min_value_hs %}\n      {% set new_val = float(val) + rand_add %}\n
+      \   {% else %}\n      {% set new_val = default_value_hs %}\n    {% endif %}\n
+      \   {% set data.hs_col = data.hs_col + [new_val] %}\n  {% endfor %}\n{% endif
+      %}\n{{ data.hs_col or default_colour or [0, 0] }}"
+variables:
+  entities: !input entities
+  max_value_hue: !input max_value_hue
+  min_value_hue: !input min_value_hue
+  max_value_sat: !input max_value_sat
+  min_value_sat: !input min_value_sat
+  step_value_hue: !input step_value_hue
+  step_value_sat: !input step_value_sat
+  use_negatives: !input use_negatives
+  default_value_hue: !input default_value_hue
+  default_value_sat: !input default_value_sat
+  default_colour:
+  - !input default_value_hue
+  - !input default_value_sat
+mode: single

@@ -1,0 +1,178 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+logger:
+  default: info
+# ZHA Toolkit
+zha_toolkit:
+# LCARS Clock
+zha:
+  custom_quirks_path: custom_zha_quirks/
+
+#light:
+#  - platform: relative_brightness_light_group
+#  name: Dining Light Group
+#    entities:
+#     - light.dining_light_1_light
+#  - light.dining_light_2_light_2
+#    - light.dining_light_3_light
+
+sensor:
+  - platform: time_date
+    display_options:
+      - "time"
+      - "date"
+      - "date_time"
+      - "date_time_utc"
+      - "date_time_iso"
+      - "time_date"
+      - "time_utc"
+      #      - 'beat'
+      # SpotCast
+  - platform: spotcast
+    country: IE
+
+frontend:
+  javascript_version: latest
+  themes: !include_dir_merge_named themes
+  extra_module_url:
+    - /local/community/lovelace-card-mod/card-mod.js
+
+lovelace:
+  resources:
+    - url: /local/mushroom.js
+      type: module
+    - url: /local/big-slider-card.js
+      type: module
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+pyscript:
+  allow_all_imports: true
+  hass_is_global: true
+
+# REST API Calls
+rest_command:
+  # SwitchBot -
+  # Dave Bottista
+  switchbotdavebottista:
+    url: "https://api.switch-bot.com/v1.0/devices/F2EA2D0C0AA7/commands"
+    method: POST
+    headers:
+      authorization: "e1872082fe30c96ca2ad418ee55da9d77fb60b4667ff13e24c704521e1c8ce3e254d761a2debbe42cab45e5cf524dd7c"
+      accept: "application/json"
+      charset: "utf8"
+      t: "1734366875849"
+      sign: "9dYiE92ajqFdbX1RF4l/q0UjUDIt9nrYlm00sfwPbY4="
+      nonce: "258259cf-8535-4e99-bdd3-752e9b0e3f10"
+    payload: '{"command": "turnOn"}'
+    content_type: "application/json; charset=utf-8"
+    verify_ssl: true
+  # Alexa Virtual Buttons
+  # Button 1
+  alexavirtualbutton01:
+    url: "https://api.virtualbuttons.com/v1"
+    method: POST
+    payload: '{"virtualButton": 1,"accessCode": "amzn1.ask.account.AHWM6ZAN2QFEKAMVRQ2T7QP3QIKC6LM42DJF633O3QOULWMYYMA7ZL3EL3ANPKCKZIXRE7NRSIA4F6QO25KHFLWYDDOUKIT6LQN7NMJJTCWPOIWLFYNY2Q7WODM3LNG3ZYPYLWIG6M6NNZR6VU2QM2XMXS6JZ5UY7CYVOO4647PV6TBNQTDVXCBOKI2XZP5ZNP3JBLMZXFPQZ7A" }'
+    verify_ssl: true
+  # Button 2
+  alexavirtualbutton02:
+    url: "https://api.virtualbuttons.com/v1"
+    method: POST
+    payload: '{"virtualButton": 2,"accessCode": "amzn1.ask.account.AHWM6ZAN2QFEKAMVRQ2T7QP3QIKC6LM42DJF633O3QOULWMYYMA7ZL3EL3ANPKCKZIXRE7NRSIA4F6QO25KHFLWYDDOUKIT6LQN7NMJJTCWPOIWLFYNY2Q7WODM3LNG3ZYPYLWIG6M6NNZR6VU2QM2XMXS6JZ5UY7CYVOO4647PV6TBNQTDVXCBOKI2XZP5ZNP3JBLMZXFPQZ7A" }'
+    verify_ssl: true
+  # Button 3
+  alexavirtualbutton03:
+    url: "https://api.virtualbuttons.com/v1"
+    method: POST
+    payload: '{"virtualButton": 3,"accessCode": "amzn1.ask.account.AHWM6ZAN2QFEKAMVRQ2T7QP3QIKC6LM42DJF633O3QOULWMYYMA7ZL3EL3ANPKCKZIXRE7NRSIA4F6QO25KHFLWYDDOUKIT6LQN7NMJJTCWPOIWLFYNY2Q7WODM3LNG3ZYPYLWIG6M6NNZR6VU2QM2XMXS6JZ5UY7CYVOO4647PV6TBNQTDVXCBOKI2XZP5ZNP3JBLMZXFPQZ7A" }'
+    verify_ssl: true
+  # Button 4
+  alexavirtualbutton04:
+    url: "https://api.virtualbuttons.com/v1"
+    method: POST
+    payload: '{"virtualButton": 4,"accessCode": "amzn1.ask.account.AHWM6ZAN2QFEKAMVRQ2T7QP3QIKC6LM42DJF633O3QOULWMYYMA7ZL3EL3ANPKCKZIXRE7NRSIA4F6QO25KHFLWYDDOUKIT6LQN7NMJJTCWPOIWLFYNY2Q7WODM3LNG3ZYPYLWIG6M6NNZR6VU2QM2XMXS6JZ5UY7CYVOO4647PV6TBNQTDVXCBOKI2XZP5ZNP3JBLMZXFPQZ7A" }'
+    verify_ssl: true
+  # Button 5
+  alexavirtualbutton05:
+    url: "https://api.virtualbuttons.com/v1"
+    method: POST
+    payload: '{"virtualButton": 5,"accessCode": "amzn1.ask.account.AHWM6ZAN2QFEKAMVRQ2T7QP3QIKC6LM42DJF633O3QOULWMYYMA7ZL3EL3ANPKCKZIXRE7NRSIA4F6QO25KHFLWYDDOUKIT6LQN7NMJJTCWPOIWLFYNY2Q7WODM3LNG3ZYPYLWIG6M6NNZR6VU2QM2XMXS6JZ5UY7CYVOO4647PV6TBNQTDVXCBOKI2XZP5ZNP3JBLMZXFPQZ7A" }'
+    verify_ssl: true
+
+# Spotify Users - SpotCast
+
+spotcast:
+  sp_dc: !secret primary_sp_dc
+  sp_key: !secret primary_sp_key
+  country: IE #optional, added in 3.6.24
+  accounts:
+    dermot:
+      sp_dc: !secret dermot_sp_dc
+      sp_key: !secret dermot_sp_key
+    lindsay:
+      sp_dc: !secret lindsay_sp_dc
+      sp_key: !secret lindsay_sp_key
+    fionn:
+      sp_dc: !secret fionn_sp_dc
+      sp_key: !secret fionn_sp_key
+    tara:
+      sp_dc: !secret tara_sp_dc
+      sp_key: !secret tara_sp_key
+
+# SigEnergy Modbus Integration
+homeassistant:
+  packages: !include_dir_named packages
+
+# Grafana's Prometheus Exporter
+#
+prometheus:
+
+#Templates
+template:
+  # Weather/Temperature template
+  - trigger:
+      - trigger: time_pattern
+        minutes: /1
+    action:
+      - action: weather.get_forecasts
+        data:
+          type: hourly
+        target:
+          entity_id: weather.home
+        response_variable: hourly
+    sensor:
+      - name: Temperature forecast next hour
+        unique_id: temperature_forecast_next_hour
+        state: "{{ hourly['weather.home'].forecast[0].temperature }}"
+
+  - sensor:
+      name: "Estimated Lux"
+      unique_id: "estimated_lux_sensor"
+      unit_of_measurement: "lx"
+      state_class: "measurement"
+      # The formula assumes a standard Luminous Efficacy for sunlight of ~100 lumens per Watt of irradiance.
+      # Solar Irradiance (W/m²) = Power Output (W) / Efficiency / Area (m²)
+      # Lux (lx) = Solar Irradiance (W/m²) * Luminous Efficacy (lm/W)
+      # Resulting formula: Lux = (Power / 0.19 / Area) * 100
+      # Documentation comments are safe here
+      state: >
+        {% set power_w = states('sensor.sigen_pv_power') | float(0) %}
+        {% set efficiency = 0.19 %}
+        {% set panel_area_sq_m = 1.6 %}
+        {% set luminous_efficacy = 100 %}
+        {% if power_w > 0 %}
+          {{ ((power_w / efficiency / panel_area_sq_m) * luminous_efficacy) | round(0) }}
+        {% else %}
+          0
+        {% endif %}
+# Configured InfluxDB to take time-series metrics
+influxdb:
+  host: 192.168.0.35
+  port: 8086
+  database: homeassistant
+  username: adminha
+  password: adminha
+  max_retries: 3
+  default_measurement: state
+  # Add specific entities to track if needed

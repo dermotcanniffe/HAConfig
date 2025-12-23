@@ -1,0 +1,241 @@
+blueprint:
+  name: Party Lights
+  author: AntonH
+  description: '**Version 1.3**
+
+
+    Lights go to party mode (color loops or fade-in-and-out)
+
+
+    ⚠️ **NOTE:** ⚠️
+
+    *This automation is triggered by the status of a switch or an input_boolean entity.*
+
+    *You can create this input_boolean by going to Settings > Devices & services >
+    Helpers*
+
+    *There you click on ''Create helper and choose ''Toggle''.*
+
+    '
+  source_url: https://gist.github.com/Twanne/fe33ab8466f9a4e94b3f8e21f745a377
+  domain: automation
+  input:
+    party_mode_trigger:
+      name: Party mode trigger
+      description: "The trigger you want to use to turn the party mode on.\nThe automation
+        will keep running until this is turned off.\n\nSupported entity types:\n  -
+        input_boolean\n  - switch\n"
+      default: []
+      selector:
+        entity:
+          domain:
+          - input_boolean
+          - switch
+          multiple: false
+    target_light:
+      name: Target lights
+      description: Which lights do you want to control?
+      selector:
+        entity:
+          multiple: true
+          filter:
+          - domain:
+            - light
+    sync_lights:
+      name: Synchronize lights
+      description: 'If more than 1 target light is selected, choose if they will all
+        change together or if they each get their own random values.
+
+
+        **NOTE:**
+
+        *Light groups will be seen an a single entity.*
+
+        '
+      default: true
+      selector:
+        boolean: {}
+    time_between_changes:
+      name: Time between changes
+      description: Change the lights setting after this duration
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 0
+      selector:
+        duration: {}
+    transition_time:
+      name: Transition time
+      description: "The time it takes for the light to transition to the assigned
+        value when it's triggered.\n\nWARNING!: \n  This value should not be greater
+        than the time between changes\n"
+      default: 0
+      selector:
+        number:
+          min: 0.0
+          max: 300.0
+          step: 1.0
+          unit_of_measurement: s
+          mode: slider
+    color_mode:
+      name: Color mode
+      description: "Select how the lights need to change\n  \n  1. ⬛ **NO COLOR CHANGE:**\n
+        \ Don't change colors.\n\n  2. \U0001F308 **RANDOM COLOR MODE**\n  Change
+        all RGB values randomly.\n\n  3. \U0001F7E5 **REDS ONLY MODE:**\n  Change
+        only red value randomly.\n\n  4. \U0001F7E9 **GREENS ONLY MODE:**\n  Change
+        only green value randomly.\n\n  5. \U0001F7E6 **BLUES ONLY MODE:**\n  Change
+        only blue value randomly.\n\n  6. \U0001F7E6 **TEALS ONLY MODE:**\n  Change
+        only blue value randomly.\n\n  7. \U0001F7EA **PINKS ONLY MODE:**\n  Change
+        only blue value randomly.\n\n  8. \U0001F7E8 **YELLOWS ONLY MODE:**\n  Change
+        only blue value randomly.\n"
+      default: no_color_change
+      selector:
+        select:
+          mode: dropdown
+          options:
+          - label: NO COLOR CHANGE
+            value: no_color_change
+          - label: RANDOM COLOR MODE
+            value: random
+          - label: REDS ONLY MODE
+            value: red
+          - label: GREENS ONLY MODE
+            value: green
+          - label: BLUES ONLY MODE
+            value: blue
+          - label: TEALS ONLY MODE
+            value: teal
+          - label: PINKS ONLY MODE
+            value: pink
+          - label: YELLOWS ONLY MODE
+            value: yellow
+          custom_value: false
+          sort: false
+          multiple: false
+    brightness_mode:
+      name: Brightness mode
+      description: "Select how the lights need to change\n\n  1. **RANDOM BRIGHTNESS:**\n
+        \ Change the brightness randomly within a set range\n  \n  2. **FIXED BRIGHTNESS:**\n
+        \ Keep the light at a user defined brightness\n"
+      default: random
+      selector:
+        select:
+          mode: dropdown
+          options:
+          - label: RANDOM BRIGHTNESS
+            value: random
+          - label: FIXED BRIGHTNESS
+            value: fixed
+          custom_value: false
+          sort: false
+          multiple: false
+    min_brightness_pct:
+      name: Minimum brightness (RANDOM BRIGHTNESS MODE)
+      description: Don't set the brightness of the light below this value
+      default: 0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+          unit_of_measurement: '%'
+    max_brightness_pct:
+      name: Maximum brightness (RANDOM BRIGHTNESS MODE)
+      description: Don't set the brightness of the light above this value
+      default: 100
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+          unit_of_measurement: '%'
+    fixed_brightness_pct:
+      name: Brightness (FIXED BRIGHTNESS MODE)
+      description: Keep the light at this percentage (color changes might affect this
+        somewhat)
+      default: 0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+          unit_of_measurement: '%'
+mode: restart
+variables:
+  party_mode_trigger: !input party_mode_trigger
+  target_light: !input target_light
+  sync_lights: !input sync_lights
+  time_between_changes: !input time_between_changes
+  transition_time: !input transition_time
+  color_mode: !input color_mode
+  brightness_mode: !input brightness_mode
+  min_brightness_pct: !input min_brightness_pct
+  max_brightness_pct: !input max_brightness_pct
+  fixed_brightness_pct: !input fixed_brightness_pct
+trigger:
+- platform: state
+  entity_id: !input party_mode_trigger
+  to: 'on'
+action:
+- repeat:
+    sequence:
+    - choose:
+      - conditions: '{{ sync_lights is true }}'
+        sequence:
+        - variables:
+            brightness_value: "{% if brightness_mode == \"random\" %}\n  {{ range(min_brightness_pct,
+              max_brightness_pct) | random }}\n{% else %}\n  {{ fixed_brightness_pct
+              }}\n{% endif %}\n"
+            rgb_value: "{% if color_mode == \"random\" %}\n  {{ range(0,255) | random,
+              range(0,255) | random, range(0,255) | random }}\n{% elif color_mode
+              == \"red\" %}\n  {{ range(0,255) | random, 0, 0 }}\n{% elif color_mode
+              == \"green\" %}\n  {{ 0, range(0,255) | random, 0 }}\n{% elif color_mode
+              == \"blue\" %}\n  {{ 0, 0, range(0,255) | random }}\n{% elif color_mode
+              == \"teal\" %}\n  {{ range(0,255) | random, 255, 255 }}\n{% elif color_mode
+              == \"pink\" %}\n  {{ 255, range(0,255) | random, 255 }}\n{% elif color_mode
+              == \"yellow\" %}\n  {{ 255, 255, range(0,255) | random }}\n{% else %}\n
+              \ {{ 255, 255, 255 }}\n{% endif %}\n"
+        - service: light.turn_on
+          data: "{% if color_mode == \"no_color_change\" %}\n  {{ { \"transition\":
+            transition_time, \"brightness_pct\": brightness_value } }}\n{% else %}\n
+            \ {{ { \"transition\": transition_time, \"brightness_pct\": brightness_value,
+            \"rgb_color\": rgb_value } }}\n{% endif %}\n"
+          target:
+            entity_id: '{{ target_light }}'
+      - conditions: '{{ sync_lights is false }}'
+        sequence:
+        - service: system_log.write
+          metadata: {}
+          data:
+            level: warning
+            message: 'target_light: {{ target_light }}
+
+              '
+        - repeat:
+            for_each: '{{ target_light }}'
+            sequence:
+            - variables:
+                brightness_value: "{% if brightness_mode == \"random\" %}\n  {{ range(min_brightness_pct,
+                  max_brightness_pct) | random }}\n{% else %}\n  {{ fixed_brightness_pct
+                  }}\n{% endif %}\n"
+                rgb_value: "{% if color_mode == \"random\" %}\n  {{ range(0,255) |
+                  random, range(0,255) | random, range(0,255) | random }}\n{% elif
+                  color_mode == \"red\" %}\n  {{ range(0,255) | random, 255, 255 }}\n{%
+                  elif color_mode == \"green\" %}\n  {{ 255, range(0,255) | random,
+                  255 }}\n{% elif color_mode == \"blue\" %}\n  {{ 255, 255, range(0,255)
+                  | random }}\n{% else %}\n  {{ 255, 255, 255 }}\n{% endif %}\n"
+            - service: light.turn_on
+              data: "{% if color_mode == \"no_color_change\" %}\n  {{ { \"transition\":
+                transition_time, \"brightness_pct\": brightness_value } }}\n{% else
+                %}\n  {{ { \"transition\": transition_time, \"brightness_pct\": brightness_value,
+                \"rgb_color\": rgb_value } }}\n{% endif %}\n"
+              target:
+                entity_id: '{{ repeat.item }}'
+    - delay: !input time_between_changes
+    until:
+    - condition: state
+      entity_id: !input party_mode_trigger
+      state: 'off'

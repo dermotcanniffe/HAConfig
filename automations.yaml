@@ -1,0 +1,1054 @@
+- id: '1696862445776'
+  alias: LightMyOffice
+  description: ''
+  triggers:
+  - entity_id:
+    - binary_sensor.presence_sensor_fp2_69d1_presence_sensor_2
+    from: 'off'
+    to: 'on'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 5
+    trigger: state
+  conditions: []
+  actions:
+  - sequence:
+    - type: turn_on
+      device_id: 04571816913049e291d7d38e15372f68
+      entity_id: 78f11fe7b0b792223613013a9c08d2cb
+      domain: switch
+    - device_id: b61d57901f71c9e6b5cd20f69d8085db
+      domain: mobile_app
+      type: notify
+      message: Welcome to your desk
+      title: DermoDesk
+    - action: light.turn_on
+      metadata: {}
+      data: {}
+      target:
+        device_id: 8467498be0ee1c90141fb1f69f1ac229
+  - condition: state
+    entity_id: sensor.presence_sensor_fp2_69d1_light_sensor_light_level
+    state: ''
+  mode: single
+- id: '1696872767999'
+  alias: Hue Switch On/off
+  description: ''
+  triggers:
+  - device_id: 7de517730583e368889df1b96803e69c
+    domain: zha
+    type: remote_button_short_press
+    subtype: turn_on
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    data:
+      kelvin: 2000
+      brightness_pct: 54
+    target:
+      entity_id: light.jerry
+  mode: single
+- id: '1696872810358'
+  alias: Hue Switch
+  description: ''
+  triggers:
+  - device_id: 7de517730583e368889df1b96803e69c
+    domain: zha
+    type: remote_button_short_press
+    subtype: turn_off
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 52d3ce22236996054f75630d6c4df8bf
+    entity_id: f11a2803e482c78a6061f82ca2f68617
+    domain: switch
+  mode: single
+- id: '1696872938519'
+  alias: Hue Switch Higher
+  description: ''
+  triggers:
+  - device_id: 7de517730583e368889df1b96803e69c
+    domain: zha
+    type: remote_button_long_press
+    subtype: dim_up
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: 5ab232a8b4815f298f5069d36d74ac33
+    domain: light
+    entity_id: c5232d4d09037db46d8cd0906956133c
+    type: brightness_increase
+  mode: single
+- id: '1696873051760'
+  alias: Hue Lower
+  description: ''
+  triggers:
+  - device_id: 7de517730583e368889df1b96803e69c
+    domain: zha
+    type: remote_button_long_press
+    subtype: dim_down
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: 5ab232a8b4815f298f5069d36d74ac33
+    domain: light
+    entity_id: c5232d4d09037db46d8cd0906956133c
+    type: brightness_decrease
+  mode: single
+- id: '1708948426039'
+  alias: BedroomParty
+  description: ''
+  use_blueprint:
+    path: Twanne/party_lights.yaml
+    input:
+      party_mode_trigger: switch.plugboard1_switch_3
+      target_light:
+      - light.tz3000_riwp3k79_ts0505a_light
+      sync_lights: false
+      time_between_changes:
+        hours: 0
+        minutes: 0
+        seconds: 10
+      transition_time: 8
+      color_mode: random
+      brightness_mode: fixed
+      fixed_brightness_pct: 100
+- id: '1725449858248'
+  alias: Office empty
+  description: ''
+  triggers:
+  - entity_id:
+    - binary_sensor.presence_sensor_fp2_69d1_presence_sensor_1
+    from: 'on'
+    to: 'off'
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+    trigger: state
+  conditions: []
+  actions:
+  - sequence:
+    - type: turn_off
+      device_id: 04571816913049e291d7d38e15372f68
+      entity_id: 78f11fe7b0b792223613013a9c08d2cb
+      domain: switch
+    - action: scene.turn_on
+      metadata: {}
+      target:
+        entity_id: scene.office_lights_off
+      data: {}
+    - condition: state
+      entity_id: input_boolean.videolightonoff
+      state: 'on'
+    - action: input_boolean.turn_off
+      metadata: {}
+      data: {}
+      target:
+        area_id: office
+  mode: single
+- id: '1727104057760'
+  alias: ToggleDaveBottista
+  description: Dave is a stateless switchbot. We want to trigger him based on a stateful
+    boolean
+  trigger:
+  - platform: state
+    entity_id:
+    - input_boolean.videolightonoff
+    from:
+    to:
+  condition: []
+  action:
+  - action: rest_command.switchbotdavebottista
+    metadata: {}
+    data: {}
+  mode: queued
+  max: 4
+- id: '1729360639128'
+  alias: ToggleJerryOn
+  description: Jerry is a stateless RFM12b Light SocketRocket. We want to trigger
+    him based on a stateful boolean
+  triggers:
+  - entity_id:
+    - input_boolean.jerryonoff
+    from: 'off'
+    to: 'on'
+    trigger: state
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions: []
+  actions:
+  - action: rest_command.alexavirtualbutton01
+    data: {}
+  mode: queued
+  max: 4
+- id: '1729361105724'
+  alias: ToggleJerryOff
+  description: Jerry is a stateless RFM12b Light SocketRocket. We want to trigger
+    him based on a stateful boolean
+  triggers:
+  - entity_id:
+    - input_boolean.jerryonoff
+    from: 'on'
+    to: 'off'
+    trigger: state
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions: []
+  actions:
+  - action: rest_command.alexavirtualbutton02
+    data: {}
+  mode: queued
+  max: 4
+- id: '1729361157380'
+  alias: ToggleTaraLightOn
+  description: '"My Light" is a stateless RFM12b Light SocketRocket. We want to trigger
+    him based on a stateful boolean'
+  triggers:
+  - entity_id:
+    - input_boolean.taralightonoff
+    from: 'off'
+    to: 'on'
+    trigger: state
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions: []
+  actions:
+  - action: rest_command.alexavirtualbutton03
+    data: {}
+  mode: queued
+  max: 4
+- id: '1729361185868'
+  alias: ToggleTaraLightOff
+  description: '"My Light" is a stateless RFM12b Light SocketRocket. We want to trigger
+    him based on a stateful boolean'
+  triggers:
+  - entity_id:
+    - input_boolean.taralightonoff
+    from: 'on'
+    to: 'off'
+    trigger: state
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions: []
+  actions:
+  - action: rest_command.alexavirtualbutton04
+    data: {}
+  mode: queued
+  max: 4
+- id: '1729367049624'
+  alias: FionnCountdownTimer
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - timer.fionntimer
+    from: active
+    to: idle
+  conditions: []
+  actions:
+  - if:
+    - condition: device
+      type: is_on
+      device_id: 52d3ce22236996054f75630d6c4df8bf
+      entity_id: f11a2803e482c78a6061f82ca2f68617
+      domain: switch
+    then:
+    - type: turn_off
+      device_id: 52d3ce22236996054f75630d6c4df8bf
+      entity_id: f11a2803e482c78a6061f82ca2f68617
+      domain: switch
+  - if:
+    - condition: state
+      entity_id: light.jerry
+      state: 'on'
+    then:
+    - type: turn_off
+      device_id: 5ab232a8b4815f298f5069d36d74ac33
+      entity_id: c5232d4d09037db46d8cd0906956133c
+      domain: light
+  mode: single
+- id: '1729367573427'
+  alias: StartFionnTimer
+  description: ''
+  triggers:
+  - trigger: event
+    event_type: ''
+    context:
+      user_id:
+      - 029a10e50942468896b2f5046fc83fee
+      - 663769fd252c4d10a97d37e90982feef
+      - dcb2d344799e4cc19f459653097b93a9
+  - trigger: conversation
+    command: Start Fionn Timer
+  conditions: []
+  actions:
+  - action: timer.start
+    metadata: {}
+    data: {}
+    target:
+      entity_id: timer.fionntimer
+  mode: single
+- id: '1729368039488'
+  alias: PerryHomePorchLight
+  description: 'When the eV - known as Perry - comes home, and it''s dark, the porch
+    light comes on '
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.perryishome
+    from: 'off'
+    to: 'on'
+  conditions:
+  - condition: sun
+    before: sunrise
+    after: sunset
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_pct: 96
+    target:
+      device_id: 993f0332a23b11e37dbc7ddc5bfeac81
+  mode: single
+- id: '1729446340279'
+  alias: Lindsay's Home
+  description: ''
+  triggers:
+  - trigger: zone
+    entity_id: person.lindsay
+    zone: zone.home
+    event: enter
+  conditions:
+  - condition: sun
+    before: sunrise
+    after: sunset
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_pct: 100
+    target:
+      entity_id: light.porch_light
+  mode: single
+- id: '1729446409252'
+  alias: Dermo's Home
+  description: ''
+  triggers:
+  - trigger: zone
+    entity_id: person.dermo
+    zone: zone.home
+    event: enter
+  conditions:
+  - condition: sun
+    before: sunrise
+    after: sunset
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_pct: 100
+    target:
+      entity_id: light.porch_light
+  mode: single
+- id: '1729446437478'
+  alias: Fionn's Home
+  description: ''
+  triggers:
+  - trigger: zone
+    entity_id: person.fionn
+    zone: zone.home
+    event: enter
+  conditions:
+  - condition: sun
+    before: sunrise
+    after: sunset
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_pct: 100
+    target:
+      entity_id: light.porch_light
+  mode: single
+- id: '1729446455615'
+  alias: Tara's Home
+  description: ''
+  triggers:
+  - trigger: zone
+    entity_id: person.tara
+    zone: zone.home
+    event: enter
+  conditions:
+  - condition: sun
+    before: sunrise
+    after: sunset
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_pct: 100
+    target:
+      entity_id: light.porch_light
+  mode: single
+- id: '1731074081632'
+  alias: FionnLeftHomeWithPlugBobOn
+  description: ''
+  triggers:
+  - trigger: zone
+    entity_id: person.fionn
+    zone: zone.home
+    event: leave
+  conditions:
+  - condition: device
+    type: is_on
+    device_id: 52d3ce22236996054f75630d6c4df8bf
+    entity_id: f11a2803e482c78a6061f82ca2f68617
+    domain: switch
+  actions:
+  - type: turn_off
+    device_id: 52d3ce22236996054f75630d6c4df8bf
+    entity_id: f11a2803e482c78a6061f82ca2f68617
+    domain: switch
+  mode: single
+- id: '1733010131153'
+  alias: LivingRoomPresence
+  description: 2 minute trigger
+  triggers:
+  - type: occupied
+    device_id: 578e9f677c97fbed1a43e7baba0339ae
+    entity_id: f26cee35dbcac7f9754d9a1fa41d5bc1
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 10
+  conditions:
+  - condition: state
+    entity_id: input_boolean.autolightslivingroom
+    state: 'on'
+  - condition: sun
+    after: sunset
+    before: sunrise
+  actions:
+  - type: turn_on
+    device_id: 172e62497145d1b9dad623a94060d455
+    entity_id: a49cd6662af06d8ffc0421a92c136dd0
+    domain: switch
+  - condition: state
+    entity_id: input_boolean.christmas_lights
+    state: 'off'
+  - action: input_boolean.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: input_boolean.christmas_lights
+  mode: single
+- id: '1733010246735'
+  alias: LivingRoomAbsence
+  description: 5 minute trigger
+  triggers:
+  - type: not_occupied
+    device_id: 578e9f677c97fbed1a43e7baba0339ae
+    entity_id: f26cee35dbcac7f9754d9a1fa41d5bc1
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 2
+      seconds: 0
+  conditions:
+  - condition: state
+    entity_id: input_boolean.autolightslivingroom
+    state:
+    - 'on'
+  actions:
+  - type: turn_off
+    device_id: 172e62497145d1b9dad623a94060d455
+    entity_id: a49cd6662af06d8ffc0421a92c136dd0
+    domain: switch
+  - action: input_boolean.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: input_boolean.christmas_lights
+  mode: single
+- id: '1733422295150'
+  alias: Turn off aircon
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '19'
+    minutes: '00'
+    seconds: '00'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 0fda79a4805dc10f978031ffbc3d4748
+    entity_id: a8b07f4b08c74fd6e866fca1ae8ddf93
+    domain: switch
+  mode: single
+- id: '1733422348793'
+  alias: Turn on aircon
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '23'
+    minutes: '00'
+    seconds: '00'
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 0fda79a4805dc10f978031ffbc3d4748
+    entity_id: a8b07f4b08c74fd6e866fca1ae8ddf93
+    domain: switch
+  mode: single
+- id: '1734129207286'
+  alias: Party Lights in the Kitchen
+  description: ''
+  use_blueprint:
+    path: Twanne/party_lights.yaml
+    input:
+      party_mode_trigger: input_boolean.party_on_wayne
+      target_light:
+      - light.dining_light_1_light
+      - light.dining_light_3_light
+      - light.dining_light_2_light_2
+      - light.kitchenspotlight2_light
+      - light.tz3000_dbou1ap4_ts0505a_light
+      - light.kitchenspotlight3_light
+      color_mode: random
+      brightness_mode: fixed
+      min_brightness_pct: 25
+      fixed_brightness_pct: 100
+      time_between_changes:
+        hours: 0
+        minutes: 0
+        seconds: 5
+- id: '1734396899056'
+  alias: Turning on the Christmas Lights
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.christmas_lights
+    from:
+    to:
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 2c8d85977aa0cea918cb789de4dee48d
+    entity_id: 40529b31dc91c86d194d4b0471c95675
+    domain: switch
+  - type: toggle
+    device_id: 2c8d85977aa0cea918cb789de4dee48d
+    entity_id: ec17cdf07564ba5f0bd1e10ccb7b9359
+    domain: switch
+  - type: toggle
+    device_id: 2c8d85977aa0cea918cb789de4dee48d
+    entity_id: f12e5a9546452785b1eaeda31b918dd5
+    domain: switch
+  mode: single
+- id: '1734728871722'
+  alias: Toggle Porch Light On
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.porch_light
+    to: 'on'
+    from: 'off'
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 993f0332a23b11e37dbc7ddc5bfeac81
+    entity_id: c6c8e9c37d0ebefb7c14167b6e7ff115
+    domain: light
+  mode: single
+- id: '1734729229365'
+  alias: Toggle Porch Light Off
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.porch_light
+    to: 'off'
+    from: 'on'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 993f0332a23b11e37dbc7ddc5bfeac81
+    entity_id: c6c8e9c37d0ebefb7c14167b6e7ff115
+    domain: light
+  mode: single
+- id: '1734732046785'
+  alias: Trigger porch switching for now
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.couchplugboard_switch_3
+    from:
+    to:
+  conditions: []
+  actions:
+  - action: input_boolean.toggle
+    metadata: {}
+    data: {}
+    target:
+      entity_id: input_boolean.porch_light
+  mode: single
+- id: '1734795641571'
+  alias: Dining Dial Actions
+  description: ''
+  use_blueprint:
+    path: nwithan8/aqara_h1_rotary_dial_remote.yaml
+    input:
+      dial: 598045522db06807e189c9890cd6b6f9
+      single:
+      - action: input_boolean.toggle
+        metadata: {}
+        data: {}
+        target:
+          entity_id: input_boolean.dininglighttoggle
+      double: []
+      long:
+      - action: input_boolean.toggle
+        metadata: {}
+        data: {}
+        target:
+          entity_id: input_boolean.dininglighttoggle
+      left:
+      - action: light.turn_on
+        target:
+          entity_id: light.dining_light_group
+        data:
+          kelvin: 2000
+          brightness_step: -51
+      right:
+      - action: light.turn_on
+        target:
+          entity_id: light.dining_light_group
+        data:
+          kelvin: 2000
+          brightness_step: 53
+- id: '1734796212800'
+  alias: DiningLightsToggleOnOrOff
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.dininglighttoggle
+    from:
+    to:
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    data:
+      kelvin: 2000
+      brightness_pct: 2
+      transition: 2
+    target:
+      entity_id: light.dining_light_group
+  mode: single
+- id: '1734913775815'
+  alias: Kitchen Spot Dial Actions
+  description: ''
+  use_blueprint:
+    path: nwithan8/aqara_h1_rotary_dial_remote.yaml
+    input:
+      dial: 034bfa508fc0b86d35434541c2ac9466
+      single:
+      - action: light.toggle
+        metadata: {}
+        data:
+          kelvin: 2738
+          brightness_pct: 71
+        target:
+          entity_id: light.kitchen_spot_group
+      double: []
+      long:
+      - action: light.toggle
+        metadata: {}
+        data:
+          kelvin: 2645
+          brightness_pct: 71
+        target:
+          entity_id: light.kitchen_spot_group
+      left:
+      - action: light.turn_on
+        metadata: {}
+        data:
+          brightness_step_pct: -20
+          kelvin: 2109
+        target:
+          entity_id: light.kitchen_spot_group
+      right:
+      - action: light.turn_on
+        metadata: {}
+        data:
+          brightness_step_pct: 20
+          kelvin: 2000
+        target:
+          entity_id: light.kitchen_spot_group
+- id: '1734915795247'
+  alias: ToggleLivingRoomLampsOn
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.livingroomlampstate
+    from: 'off'
+    to: 'on'
+  conditions: []
+  actions:
+  - action: scene.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: scene.living_room_lamps
+  mode: single
+- id: '1734916183381'
+  alias: ToggleLivingRoomLampsOff
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.livingroomlampstate
+    from: 'on'
+    to: 'off'
+  conditions: []
+  actions:
+  - action: scene.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: scene.living_room_lamps_off
+  mode: single
+- id: '1738183930151'
+  alias: Tara Light Toggle
+  description: ''
+  triggers:
+  - device_id: c9c854d03b415e17689f93c066f28c92
+    domain: zha
+    type: remote_button_short_press
+    subtype: button
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    data:
+      brightness_pct: 100
+    target:
+      device_id: 1188d0f287dc1b636d120660a54499d5
+  mode: single
+- id: '1738184030558'
+  alias: Tara Light Brighten
+  description: ''
+  triggers:
+  - device_id: c9c854d03b415e17689f93c066f28c92
+    domain: zha
+    type: device_rotated
+    subtype: right
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_step_pct: 20
+    target:
+      device_id: 1188d0f287dc1b636d120660a54499d5
+  mode: single
+- id: '1738184093867'
+  alias: Tara Light Dim
+  description: ''
+  triggers:
+  - device_id: c9c854d03b415e17689f93c066f28c92
+    domain: zha
+    type: device_rotated
+    subtype: left
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      brightness_step_pct: -20
+    target:
+      device_id: 1188d0f287dc1b636d120660a54499d5
+  mode: single
+- id: '1738184220090'
+  alias: Tara Party Lights
+  description: ''
+  triggers:
+  - device_id: c9c854d03b415e17689f93c066f28c92
+    domain: zha
+    type: remote_button_long_release
+    subtype: button
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 1fade9cbb6355f4a24248d2057eb7013
+    entity_id: 9a229e7775ce7f9a8a7022635391451a
+    domain: switch
+  mode: single
+- id: '1747267329916'
+  alias: Early Morning Warm Rice
+  description: ''
+  triggers:
+  - trigger: time
+    at: 05:30:00
+  conditions: []
+  actions:
+  - action: timer.start
+    metadata: {}
+    data: {}
+    target:
+      entity_id: timer.morningricecooker
+  mode: single
+- id: '1747267636107'
+  alias: MorningRice
+  description: ''
+  triggers:
+  - trigger: time
+    at: 05:30:00
+  conditions:
+  - condition: state
+    entity_id: input_boolean.activatemorningrice
+    state: 'on'
+  actions:
+  - type: turn_on
+    device_id: 1effd381c10b4e59a1bdbc93d92ec3fc
+    entity_id: 9c9c62ff50f76d97bc67eacf9ba6cc60
+    domain: switch
+  - delay:
+      hours: 0
+      minutes: 15
+      seconds: 0
+      milliseconds: 0
+  - type: turn_off
+    device_id: 1effd381c10b4e59a1bdbc93d92ec3fc
+    entity_id: 9c9c62ff50f76d97bc67eacf9ba6cc60
+    domain: switch
+  mode: single
+- id: '1757515770536'
+  alias: office manual light
+  description: ''
+  triggers:
+  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+    domain: zha
+    type: remote_button_short_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    data: {}
+    target:
+      area_id: office
+  mode: single
+- id: '1760736231119'
+  alias: Lightstrip only
+  description: ''
+  triggers:
+  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+    domain: zha
+    type: remote_button_double_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: a85e59063ca634d1921c3e3e39a7e014
+    entity_id: a3aaf336af7ae344e96e8f72e40591e9
+    domain: light
+  mode: single
+- id: '1765473024480'
+  alias: Porch Light Toggle
+  description: ''
+  triggers:
+  - device_id: 5526005a23a10b78706714c8bd51e961
+    domain: zha
+    type: remote_button_short_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    target:
+      area_id: carport
+    data:
+      brightness_pct: 100
+  mode: single
+- id: '1765563849156'
+  alias: Motion in the Office = Lights
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.camera1_motion_detection
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 20
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id: light.office_overhead_light_light
+    data:
+      transition: 6
+      brightness_pct: 100
+  mode: single
+- id: '1766494905214'
+  alias: OfficeLightToggle
+  description: ''
+  triggers:
+  - device_id: aff4dab3a7307f7b1f2749c3cf3971e3
+    domain: zha
+    type: remote_button_short_press
+    subtype: button
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    target:
+      area_id: office
+    data:
+      transition: 2
+  mode: single
+- id: '1766495037377'
+  alias: OfficeLightStripToggle
+  description: ''
+  triggers:
+  - device_id: aff4dab3a7307f7b1f2749c3cf3971e3
+    domain: zha
+    type: remote_button_double_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    data:
+      transition: 2
+    target:
+      entity_id: light.office_lightstrip
+  mode: single
+- id: '1766495845205'
+  alias: StudioLightsToggle
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.studiolights
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 7c2285840c98c661a4fdbac8120495ff
+    entity_id: b847e4e6de2b5a4f948e1f2eb211755e
+    domain: switch
+  mode: single
+- id: '1766496055068'
+  alias: StudioToggle
+  description: ''
+  triggers:
+  - device_id: aff4dab3a7307f7b1f2749c3cf3971e3
+    domain: zha
+    type: remote_button_long_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: light.office_overhead_light_light
+        state:
+        - 'off'
+      sequence:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          area_id: office
+        data:
+          transition: 2
+  - if:
+    - condition: state
+      entity_id: input_boolean.studiolights
+      state:
+      - 'off'
+    then:
+    - action: assist_satellite.announce
+      metadata: {}
+      target:
+        entity_id: assist_satellite.m5stack_atom_echo_241368_assist_satellite
+      data:
+        message: 'Primary Systems are Nominal, but the targetting system''s knackered
+          boss. '
+        preannounce: true
+    - type: turn_on
+      device_id: 04571816913049e291d7d38e15372f68
+      entity_id: 78f11fe7b0b792223613013a9c08d2cb
+      domain: switch
+    - action: input_boolean.toggle
+      metadata: {}
+      target:
+        entity_id: input_boolean.studiolights
+      data: {}
+    - action: input_boolean.toggle
+      metadata: {}
+      target:
+        entity_id: input_boolean.llmquery
+      data: {}
+    else:
+    - action: assist_satellite.announce
+      metadata: {}
+      target:
+        entity_id: assist_satellite.m5stack_atom_echo_241368_assist_satellite
+      data:
+        message: Powering down primary systems
+        preannounce: true
+    - action: input_boolean.toggle
+      metadata: {}
+      target:
+        entity_id: input_boolean.studiolights
+      data: {}
+    - type: turn_off
+      device_id: 04571816913049e291d7d38e15372f68
+      entity_id: 78f11fe7b0b792223613013a9c08d2cb
+      domain: switch
+  mode: single
+- id: '1766502704050'
+  alias: SarkyWeather
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.llmquery
+    to:
+  actions:
+  - action: script.speak_llm_response
+    data:
+      prompt: '"Hello. I''d like to know the outside temperature, and the Office temperature.
+        Then give me a sarcastic summary of the weather"'
