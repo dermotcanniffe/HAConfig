@@ -8,28 +8,24 @@ zha_toolkit:
 zha:
   custom_quirks_path: custom_zha_quirks/
 
-#light:
-#  - platform: relative_brightness_light_group
-#  name: Dining Light Group
-#    entities:
-#     - light.dining_light_1_light
-#  - light.dining_light_2_light_2
-#    - light.dining_light_3_light
+# Integrating GIT support for HA config YAML files - https://github.com/dermotcanniffe/HAConfig - via SSH
+shell_command:
+  git_update: 'cd /config && git add . && git commit -m "Config update: $(date "+%Y-%m-%d %H:%M")" && git push origin main'
 
-sensor:
-  - platform: time_date
-    display_options:
-      - "time"
-      - "date"
-      - "date_time"
-      - "date_time_utc"
-      - "date_time_iso"
-      - "time_date"
-      - "time_utc"
-      #      - 'beat'
-      # SpotCast
-  - platform: spotcast
-    country: IE
+  sensor:
+    - platform: time_date
+      display_options:
+        - "time"
+        - "date"
+        - "date_time"
+        - "date_time_utc"
+        - "date_time_iso"
+        - "time_date"
+        - "time_utc"
+        #      - 'beat'
+        # SpotCast
+    - platform: spotcast
+      country: IE
 
 frontend:
   javascript_version: latest
