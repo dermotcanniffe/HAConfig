@@ -14,22 +14,33 @@ from homeassistant import config_entries, core
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.const import (EVENT_HOMEASSISTANT_STOP)
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from nextcord import ActivityType, Spotify, Game, Streaming, CustomActivity, Activity, Member, User, VoiceState, RawReactionActionEvent
 from nextcord.abc import GuildChannel
 from nextcord.ext import tasks
 
-from .const import DOMAIN, CONF_MEMBERS, CONF_CHANNELS, CONF_IMAGE_FORMAT
+from .const import DOMAIN, CONF_MEMBERS, CONF_CHANNELS, CONF_VOICE_CHANNELS, CONF_IMAGE_FORMAT, CONF_STEAM_API_KEY, CONF_ENTITIES_DISABLED_DEFAULT
 
 _LOGGER = logging.getLogger(__name__)
 
 ENTITY_ID_FORMAT = "sensor.discord_user_{}"
 ENTITY_ID_CHANNEL_FORMAT = "sensor.discord_channel_{}"
+ENTITY_ID_VOICE_CHANNEL_FORMAT = "sensor.discord_voice_channel_{}"
+
+_PATTERN_WITH_SIZE = re.compile(
+    r'^https://cdn\.discordapp\.com/app-assets/\d+/mp:external/([^/]+)/(https/.+?)(_\d+)\.(?:png|jpg|jpeg|webp)$'
+)
+_PATTERN_NO_SIZE = re.compile(
+    r'^https://cdn\.discordapp\.com/app-assets/\d+/mp:external/([^/]+)/(https/.+?)\.(?:png|jpg|jpeg|webp)$'
+)
 
 steam_app_list = []
+steam_app_dict = {}
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ACCESS_TOKEN): cv.string,
+    vol.Optional(CONF_STEAM_API_KEY): cv.string,
     vol.Required(CONF_MEMBERS, default=[]): vol.All(cv.ensure_list, [cv.string]),
     vol.Required(CONF_CHANNELS, default=[]): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_IMAGE_FORMAT, default='webp'): vol.In(['png', 'webp', 'jpeg', 'jpg']),
@@ -55,17 +66,69 @@ async def async_setup_entry(
     import nextcord
     token = config.get(CONF_ACCESS_TOKEN)
     image_format = config.get(CONF_IMAGE_FORMAT)
+    steam_api_key = config.get(CONF_STEAM_API_KEY)
+    entities_disabled_default = config.get(CONF_ENTITIES_DISABLED_DEFAULT, False)
 
     bot = nextcord.Client(loop=hass.loop, intents=nextcord.Intents.all())
     await bot.login(token)
 
+    bot._dc_game_connected = False
+    bot_shutting_down = False
+
     # noinspection PyUnusedLocal
     async def async_stop_server(event):
+        nonlocal bot_shutting_down
+        bot_shutting_down = True
         await bot.close()
 
+    def _update_all_entity_states():
+        """Push state update to all entities so availability changes are reflected."""
+        for _watcher in watchers.values():
+            if _watcher.hass is not None:
+                _watcher.async_schedule_update_ha_state(False)
+            for sensor in _watcher.sensors.values():
+                if sensor.hass is not None:
+                    sensor.async_schedule_update_ha_state(False)
+        for _chan in channels.values():
+            if _chan.hass is not None:
+                _chan.async_schedule_update_ha_state(False)
+        for _vch in voice_channels.values():
+            if _vch.hass is not None:
+                _vch.async_schedule_update_ha_state(False)
+            for sensor in _vch.sensors.values():
+                if sensor.hass is not None:
+                    sensor.async_schedule_update_ha_state(False)
+
+    async def _reconnect_bot():
+        """Reconnect the bot with exponential backoff."""
+        delay = 10
+        max_delay = 300
+        while not bot_shutting_down:
+            _LOGGER.info("Attempting to reconnect Discord bot in %s seconds...", delay)
+            await asyncio.sleep(delay)
+            if bot_shutting_down:
+                break
+            try:
+                _LOGGER.info("Reconnecting Discord bot...")
+                task = asyncio.create_task(bot.start(token))
+                task.add_done_callback(task_callback)
+                return
+            except Exception as err:
+                _LOGGER.error("Failed to reconnect Discord bot: %s", err)
+                delay = min(delay * 2, max_delay)
+
     def task_callback(task: asyncio.Task):
-        # placeholder
-        pass
+        bot._dc_game_connected = False
+        _update_all_entity_states()
+        if bot_shutting_down:
+            _LOGGER.debug("Discord bot stopped (shutdown requested)")
+            return
+        exc = task.exception() if not task.cancelled() else None
+        if exc:
+            _LOGGER.error("Discord bot task failed with error: %s", exc)
+        else:
+            _LOGGER.warning("Discord bot task ended unexpectedly")
+        asyncio.ensure_future(_reconnect_bot())
 
     # noinspection PyUnusedLocal
     async def start_server(event):
@@ -87,18 +150,46 @@ async def async_setup_entry(
         await load_steam_application_list()
 
     async def load_steam_application_list():
+        if not steam_api_key:
+            _LOGGER.warning("Steam API key not configured, skipping Steam app list loading")
+            return
         timeout = aiohttp.ClientTimeout(total=90, connect=10)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as steam_session:
                 _LOGGER.debug("Loading Steam detectable applications - config_flow")
-                async with steam_session.get("https://api.steampowered.com/ISteamApps/GetAppList/v2/") as steam_response:
-                    if steam_response.status != 200:
-                        _LOGGER.error("Error loading Steam detectable applications - config_flow, status=%s", steam_response.status)
-                        return
-                    steam_app_list_response = Dict(await steam_response.json())
-                    global steam_app_list
-                    steam_app_list = steam_app_list_response['applist']['apps']
-                    _LOGGER.debug("Loading Steam detectable applications finished - config_flow")
+                global steam_app_list
+                all_apps = []
+                last_appid = 0
+                have_more = True
+                while have_more:
+                    params = {
+                        "key": steam_api_key,
+                        "max_results": 50000,
+                        "include_dlc": "false",
+                        "include_videos": "false",
+                        "include_hardware": "false",
+                    }
+                    if last_appid > 0:
+                        params["last_appid"] = last_appid
+                    async with steam_session.get(
+                        "https://api.steampowered.com/IStoreService/GetAppList/v1/",
+                        params=params
+                    ) as steam_response:
+                        if steam_response.status != 200:
+                            _LOGGER.error("Error loading Steam detectable applications - config_flow, status=%s", steam_response.status)
+                            return
+                        steam_app_list_response = Dict(await steam_response.json())
+                        apps = steam_app_list_response.get('response', {}).get('apps', [])
+                        all_apps.extend(apps)
+                        have_more = steam_app_list_response.get('response', {}).get('have_more_results', False)
+                        if have_more and apps:
+                            last_appid = apps[-1].get('appid', 0)
+                        else:
+                            have_more = False
+                steam_app_list = all_apps
+                global steam_app_dict
+                steam_app_dict = {app['name']: app for app in all_apps if 'name' in app}
+                _LOGGER.debug("Loading Steam detectable applications finished - config_flow, total apps: %s", len(steam_app_list))
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout while loading Steam detectable applications - config_flow")
             return
@@ -106,7 +197,7 @@ async def async_setup_entry(
     # noinspection PyUnusedLocal
     @bot.event
     async def on_error(error, *args, **kwargs):
-        raise
+        _LOGGER.error("Discord bot error in %s: %s", error, args)
 
     async def update_discord_entity(_watcher: DiscordAsyncMemberState, discord_member: Member):
         _watcher._state = discord_member.status
@@ -217,116 +308,128 @@ async def async_setup_entry(
                 _watcher.custom_status = activity.name
                 _watcher.custom_emoji = activity.emoji.name if activity.emoji else None
 
-        _watcher.async_schedule_update_ha_state(False)
+        if _watcher.hass is not None:
+            _watcher.async_schedule_update_ha_state(False)
 
     async def update_discord_entity_user(_watcher: DiscordAsyncMemberState, discord_user: User):
-        _watcher.avatar_url = discord_user.display_avatar.with_size(1024).with_static_format(image_format).__str__()
+        if discord_user.avatar:
+            _watcher.avatar_url = discord_user.display_avatar.with_size(1024).with_static_format(image_format).__str__()
+        else:
+            _watcher.avatar_url = discord_user.default_avatar.url
         _watcher.userid = discord_user.id
         _watcher.member = discord_user.name
         _watcher.user_name = discord_user.global_name
-        _watcher.async_schedule_update_ha_state(False)
+        if _watcher.hass is not None:
+            _watcher.async_schedule_update_ha_state(False)
 
     def to_media_discord_url(url: str) -> str:
-        PATTERN_WITH_SIZE = re.compile(
-            r'^https://cdn\.discordapp\.com/app-assets/\d+/mp:external/([^/]+)/(https/.+?)(_\d+)\.(?:png|jpg|jpeg|webp)$'
-        )
-
-        PATTERN_NO_SIZE = re.compile(
-            r'^https://cdn\.discordapp\.com/app-assets/\d+/mp:external/([^/]+)/(https/.+?)\.(?:png|jpg|jpeg|webp)$'
-        )
-
         if not url or "mp:external" not in url:
             return url
 
-        m = PATTERN_WITH_SIZE.match(url)
+        m = _PATTERN_WITH_SIZE.match(url)
         if m:
             return f"https://media.discordapp.net/external/{m.group(1)}/{m.group(2)}{m.group(3)}"
 
-        m = PATTERN_NO_SIZE.match(url)
+        m = _PATTERN_NO_SIZE.match(url)
         if m:
             return f"https://media.discordapp.net/external/{m.group(1)}/{m.group(2)}"
 
         return url
 
     async def load_game_image(_watcher: DiscordAsyncMemberState, activity: Union[Activity, Game, Streaming]):
-        # try:
         if hasattr(activity, 'large_image_url'):
             _watcher.game_image_small = to_media_discord_url(activity.small_image_url)
             _watcher.game_image_large = to_media_discord_url(activity.large_image_url)
             _watcher.game_image_small_text = activity.small_image_text
             _watcher.game_image_large_text = activity.large_image_text
-        steam_app_by_name = list(filter(lambda steam_app: steam_app['name'] == str(activity.name), steam_app_list))
-        if steam_app_by_name:
-            steam_app_id = steam_app_by_name[0]["appid"]
-            _LOGGER.debug("FOUND Steam app by name = %s", steam_app_by_name[0])
+        steam_app = steam_app_dict.get(str(activity.name))
+        if steam_app:
+            steam_app_id = steam_app["appid"]
+            _LOGGER.debug("FOUND Steam app by name = %s", steam_app)
             timestamp = calendar.timegm(time.gmtime())
-            game_image_capsule_231x87 = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_231x87.jpg?t={timestamp}"
-            game_image_capsule_467x181 = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_467x181.jpg?t={timestamp}"
-            game_image_capsule_616x353 = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_616x353.jpg?t={timestamp}"
-            game_image_header = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/header.jpg?t={timestamp}"
-            game_image_hero_capsule = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/hero_capsule.jpg?t={timestamp}"
-            game_image_library_600x900 = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/library_600x900.jpg?t={timestamp}"
-            game_image_library_hero = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/library_hero.jpg?t={timestamp}"
-            game_image_logo = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/logo.jpg?t={timestamp}"
-            game_image_logo_png = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/logo.png?t={timestamp}"
-            game_image_page_bg_raw = \
-                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/page_bg_raw.jpg?t={timestamp}"
+            image_urls = {
+                "game_image_capsule_231x87": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_231x87.jpg?t={timestamp}",
+                "game_image_capsule_467x181": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_467x181.jpg?t={timestamp}",
+                "game_image_capsule_616x353": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/capsule_616x353.jpg?t={timestamp}",
+                "game_image_header": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/header.jpg?t={timestamp}",
+                "game_image_hero_capsule": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/hero_capsule.jpg?t={timestamp}",
+                "game_image_library_600x900": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/library_600x900.jpg?t={timestamp}",
+                "game_image_library_hero": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/library_hero.jpg?t={timestamp}",
+                "game_image_logo": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/logo.jpg?t={timestamp}",
+                "game_image_page_bg_raw": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/page_bg_raw.jpg?t={timestamp}",
+            }
+            game_image_logo_png = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{steam_app_id}/logo.png?t={timestamp}"
 
-            if await check_resource_exists(game_image_capsule_231x87):
-                _watcher.game_image_capsule_231x87 = game_image_capsule_231x87
-            if await check_resource_exists(game_image_capsule_467x181):
-                _watcher.game_image_capsule_467x181 = game_image_capsule_467x181
-            if await check_resource_exists(game_image_capsule_616x353):
-                _watcher.game_image_capsule_616x353 = game_image_capsule_616x353
-            if await check_resource_exists(game_image_header):
-                _watcher.game_image_header = game_image_header
-            if await check_resource_exists(game_image_hero_capsule):
-                _watcher.game_image_hero_capsule = game_image_hero_capsule
-            if await check_resource_exists(game_image_library_600x900):
-                _watcher.game_image_library_600x900 = game_image_library_600x900
-            if await check_resource_exists(game_image_library_hero):
-                _watcher.game_image_library_hero = game_image_library_hero
-            if await check_resource_exists(game_image_logo):
-                _watcher.game_image_logo = game_image_logo
-            if await check_resource_exists(game_image_logo_png):
-                _watcher.game_image_logo = game_image_logo_png
-            if await check_resource_exists(game_image_page_bg_raw):
-                _watcher.game_image_page_bg_raw = game_image_page_bg_raw
+            async with aiohttp.ClientSession() as session:
+                async def check_resource_exists(url):
+                    _LOGGER.debug("Checking if web resource [%s] exists", url)
+                    async with session.head(url) as response:
+                        _LOGGER.debug("Resource [%s] response status = %s", url, response.status)
+                        return response.status == 200
 
-    async def check_resource_exists(url):
-        async with aiohttp.ClientSession() as session:
-            _LOGGER.debug("Checking if web resource [%s] exists", url)
-            async with session.head(url) as response:
-                _LOGGER.debug("Resource [%s] response status = %s", url, response.status)
-                return response.status == 200
+                results = await asyncio.gather(
+                    *[check_resource_exists(url) for url in image_urls.values()],
+                    check_resource_exists(game_image_logo_png)
+                )
+
+                for (attr, url), exists in zip(image_urls.items(), results):
+                    if exists:
+                        setattr(_watcher, attr, url)
+
+                # logo.png overrides logo.jpg if it exists
+                if results[-1]:
+                    _watcher.game_image_logo = game_image_logo_png
 
     @bot.event
     async def on_ready():
-        users = {"{}".format(_user): _user for _user in bot.users}
-        members = {"{}".format(_member): _member for _member in list(bot.get_all_members())}
-        for name, _watcher in watchers.items():
-            if users.get(name) is not None:
-                await update_discord_entity_user(_watcher, users.get(name))
-            if members.get(name) is not None:
-                await update_discord_entity(_watcher, members.get(name))
+        bot._dc_game_connected = True
+        _LOGGER.info("Discord bot connected (on_ready)")
+        users = {str(_user.id): _user for _user in bot.users}
+        members = {str(_member.id): _member for _member in list(bot.get_all_members())}
+        for _watcher_id, _watcher in watchers.items():
+            if users.get(_watcher_id) is not None:
+                await update_discord_entity_user(_watcher, users.get(_watcher_id))
+            if members.get(_watcher_id) is not None:
+                await update_discord_entity(_watcher, members.get(_watcher_id))
                 for sensor in _watcher.sensors.values():
-                    sensor.async_schedule_update_ha_state(False)
+                    if sensor.hass is not None:
+                        sensor.async_schedule_update_ha_state(False)
         for name, _chan in channels.items():
-            _chan.async_schedule_update_ha_state(False)
+            if _chan.hass is not None:
+                _chan.async_schedule_update_ha_state(False)
+        for _vch_id, _vch in voice_channels.items():
+            try:
+                vc = bot.get_channel(int(_vch_id))
+                if vc is not None:
+                    _vch._user_count = len(vc.members)
+                    _vch._members = [m.display_name for m in vc.members]
+                    _vch._member_usernames = [m.name for m in vc.members]
+            except Exception:
+                _LOGGER.debug("Could not initialize voice channel %s", _vch_id)
+            if _vch.hass is not None:
+                _vch.async_schedule_update_ha_state(False)
+                for sensor in _vch.sensors.values():
+                    if sensor.hass is not None:
+                        sensor.async_schedule_update_ha_state(False)
+
+    @bot.event
+    async def on_disconnect():
+        if bot._dc_game_connected:
+            bot._dc_game_connected = False
+            _LOGGER.warning("Discord bot disconnected")
+            _update_all_entity_states()
+
+    @bot.event
+    async def on_resumed():
+        if not bot._dc_game_connected:
+            bot._dc_game_connected = True
+            _LOGGER.info("Discord bot resumed connection")
+            _update_all_entity_states()
 
     # noinspection PyUnusedLocal
     @bot.event
     async def on_member_update(before: Member, after: Member):
-        _watcher = watchers.get("{}".format(after))
+        _watcher = watchers.get(str(after.id))
         if _watcher is not None:
             await update_discord_entity(_watcher, after)
             for sensor in _watcher.sensors.values():
@@ -335,7 +438,7 @@ async def async_setup_entry(
     # noinspection PyUnusedLocal
     @bot.event
     async def on_presence_update(before: Member, after: Member):
-        _watcher = watchers.get("{}".format(after))
+        _watcher = watchers.get(str(after.id))
         if _watcher is not None:
             await update_discord_entity(_watcher, after)
             for sensor in _watcher.sensors.values():
@@ -344,7 +447,7 @@ async def async_setup_entry(
     # noinspection PyUnusedLocal
     @bot.event
     async def on_user_update(before: User, after: User):
-        _watcher: DiscordAsyncMemberState = watchers.get("{}".format(after))
+        _watcher: DiscordAsyncMemberState = watchers.get(str(after.id))
         if _watcher is not None:
             await update_discord_entity_user(_watcher, after)
             for sensor in _watcher.sensors.values():
@@ -353,7 +456,7 @@ async def async_setup_entry(
     # noinspection PyUnusedLocal
     @bot.event
     async def on_voice_state_update(_member: Member, before: VoiceState, after: VoiceState):
-        _watcher = watchers.get("{}".format(_member))
+        _watcher = watchers.get(str(_member.id))
         if _watcher is not None:
             if after.channel is not None:
                 _watcher.voice_channel = after.channel.name
@@ -369,6 +472,28 @@ async def async_setup_entry(
             _watcher.async_schedule_update_ha_state(False)
             for sensor in _watcher.sensors.values():
                 sensor.async_schedule_update_ha_state(False)
+
+        # Update voice channel entities when users join/leave/switch
+        if before.channel is not None:
+            _vch = voice_channels.get(str(before.channel.id))
+            if _vch is not None:
+                _vch._user_count = len(before.channel.members)
+                _vch._members = [m.display_name for m in before.channel.members]
+                _vch._member_usernames = [m.name for m in before.channel.members]
+                _vch.async_schedule_update_ha_state(False)
+                for sensor in _vch.sensors.values():
+                    if sensor.hass is not None:
+                        sensor.async_schedule_update_ha_state(False)
+        if after.channel is not None:
+            _vch = voice_channels.get(str(after.channel.id))
+            if _vch is not None:
+                _vch._user_count = len(after.channel.members)
+                _vch._members = [m.display_name for m in after.channel.members]
+                _vch._member_usernames = [m.name for m in after.channel.members]
+                _vch.async_schedule_update_ha_state(False)
+                for sensor in _vch.sensors.values():
+                    if sensor.hass is not None:
+                        sensor.async_schedule_update_ha_state(False)
 
     @bot.event
     async def on_raw_reaction_add(payload: RawReactionActionEvent):
@@ -387,8 +512,8 @@ async def async_setup_entry(
             user = await bot.fetch_user(member)
             if user:
                 watcher: DiscordAsyncMemberState = \
-                    DiscordAsyncMemberState(hass, bot, user.name, user.global_name, user.id)
-                watchers[watcher.name] = watcher
+                    DiscordAsyncMemberState(hass, bot, user.name, user.global_name, user.id, entities_disabled_default)
+                watchers[str(user.id)] = watcher
 
     channels = {}
     for channel in config.get(CONF_CHANNELS):
@@ -398,16 +523,70 @@ async def async_setup_entry(
                 ch: DiscordAsyncReactionState = DiscordAsyncReactionState(hass, bot, chan.name, chan.id)
                 channels[ch.name] = ch
 
+    voice_channels = {}
+    for channel in config.get(CONF_VOICE_CHANNELS, []):
+        if re.match(r"^\d{,20}", str(channel)):  # Up to 20 digits because 2^64 (snowflake-length) is 20 digits long
+            chan = await bot.fetch_channel(channel)
+            if chan:
+                vch: DiscordAsyncVoiceChannelState = DiscordAsyncVoiceChannelState(hass, bot, chan.name, chan.id, entities_disabled_default)
+                voice_channels[str(chan.id)] = vch
+
+    # Remove entities for users/channels no longer in config
+    ent_reg = er.async_get(hass)
+    current_unique_ids = set()
+    for w in watchers.values():
+        current_unique_ids.add(w.unique_id)
+        for s in w.sensors.values():
+            current_unique_ids.add(s.unique_id)
+    for ch in channels.values():
+        current_unique_ids.add(ch.unique_id)
+    for vch in voice_channels.values():
+        current_unique_ids.add(vch.unique_id)
+        for s in vch.sensors.values():
+            current_unique_ids.add(s.unique_id)
+
+    dev_reg = dr.async_get(hass)
+    for entity in er.async_entries_for_config_entry(ent_reg, config_entry.entry_id):
+        if entity.unique_id not in current_unique_ids:
+            _LOGGER.debug("Removing stale entity %s (unique_id=%s)", entity.entity_id, entity.unique_id)
+            ent_reg.async_remove(entity.entity_id)
+
+    # Remove devices that no longer have any entities
+    for device in dr.async_entries_for_config_entry(dev_reg, config_entry.entry_id):
+        if not er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True):
+            _LOGGER.debug("Removing orphaned device %s (id=%s)", device.name, device.id)
+            dev_reg.async_remove_device(device.id)
+
+    # Sync existing sub-entity enabled/disabled state with the toggle.
+    # _attr_entity_registry_enabled_default only applies on first registration,
+    # so we must explicitly update registry entries for already-registered entities.
+    sub_entity_unique_ids = set()
+    for w in watchers.values():
+        for s in w.sensors.values():
+            sub_entity_unique_ids.add(s.unique_id)
+    for vch in voice_channels.values():
+        for s in vch.sensors.values():
+            sub_entity_unique_ids.add(s.unique_id)
+    for entity in er.async_entries_for_config_entry(ent_reg, config_entry.entry_id):
+        if entity.unique_id in sub_entity_unique_ids:
+            if entities_disabled_default and entity.disabled_by is None:
+                ent_reg.async_update_entity(entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+            elif not entities_disabled_default and entity.disabled_by == er.RegistryEntryDisabler.INTEGRATION:
+                ent_reg.async_update_entity(entity.entity_id, disabled_by=None)
+
     if len(watchers) > 0:
         async_add_entities(watchers.values())
         for sensors in watchers.values():
             async_add_entities(sensors.sensors.values())
         async_add_entities(channels.values())
+        async_add_entities(voice_channels.values())
+        for vch in voice_channels.values():
+            async_add_entities(vch.sensors.values())
         hass.bus.async_fire("discord_game_setup_finished")
 
 
 class DiscordAsyncMemberState(SensorEntity):
-    def __init__(self, hass, client, member, user_name, userid):
+    def __init__(self, hass, client, member, user_name, userid, entities_disabled_default=False):
         self.member = member
         self.userid = userid
         self.hass = hass
@@ -464,7 +643,7 @@ class DiscordAsyncMemberState(SensorEntity):
         self.entity_id = ENTITY_ID_FORMAT.format(self.userid)
         sensors_dict = {}
         for sensor_name in SENSORS:
-            sensors_dict[sensor_name] = GenericSensor(sensor=self, attr=sensor_name)
+            sensors_dict[sensor_name] = GenericSensor(sensor=self, attr=sensor_name, disabled_default=entities_disabled_default)
         self.sensors = sensors_dict
 
     @property
@@ -474,6 +653,10 @@ class DiscordAsyncMemberState(SensorEntity):
             identifiers={(DOMAIN, self.member)},
             name=self.member
         )
+
+    @property
+    def available(self) -> bool:
+        return getattr(self.client, '_dc_game_connected', False)
 
     @property
     def should_poll(self) -> bool:
@@ -502,7 +685,7 @@ class DiscordAsyncMemberState(SensorEntity):
         return {
             'avatar_url': self.avatar_url,
             'activity_state': self.activity_state,
-            'user_id': self.userid,
+            'user_id': str(self.userid),
             'user_name': self.user_name,
             'display_name': self.display_name,
             'roles': self.roles,
@@ -553,10 +736,15 @@ class DiscordAsyncMemberState(SensorEntity):
 
 
 class GenericSensor(SensorEntity):
-    def __init__(self, sensor: DiscordAsyncMemberState, attr: str):
+    def __init__(self, sensor: DiscordAsyncMemberState, attr: str, disabled_default: bool = False):
         self.sensor = sensor
         self.attr = attr
+        self._attr_entity_registry_enabled_default = not disabled_default
         self.entity_id = ENTITY_ID_FORMAT.format(self.sensor.userid) + "_" + self.attr
+
+    @property
+    def available(self) -> bool:
+        return self.sensor.available
 
     @property
     def should_poll(self) -> bool:
@@ -602,6 +790,10 @@ class DiscordAsyncReactionState(SensorEntity):
         self.entity_id = ENTITY_ID_CHANNEL_FORMAT.format(self._channel_id)
 
     @property
+    def available(self) -> bool:
+        return getattr(self._client, '_dc_game_connected', False)
+
+    @property
     def should_poll(self) -> bool:
         return False
 
@@ -632,3 +824,95 @@ class DiscordAsyncReactionState(SensorEntity):
         return {
             'last_user': self._last_user
         }
+
+
+class DiscordAsyncVoiceChannelState(SensorEntity):
+    def __init__(self, hass, client, channel, channelid, entities_disabled_default=False):
+        self._channel_name = channel
+        self._channel_id = channelid
+        self._hass = hass
+        self._client = client
+        self._user_count = 0
+        self._members = []
+        self._member_usernames = []
+        self.entity_id = ENTITY_ID_VOICE_CHANNEL_FORMAT.format(self._channel_id)
+        self.sensors = {
+            "display_names": VoiceChannelMembersSensor(self, "display_names", entities_disabled_default),
+            "usernames": VoiceChannelMembersSensor(self, "usernames", entities_disabled_default),
+        }
+
+    @property
+    def available(self) -> bool:
+        return getattr(self._client, '_dc_game_connected', False)
+
+    @property
+    def should_poll(self) -> bool:
+        return False
+
+    @property
+    def native_value(self) -> int:
+        return self._user_count
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return ENTITY_ID_VOICE_CHANNEL_FORMAT.format(self._channel_id)
+
+    @property
+    def name(self):
+        return self._channel_name
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.unique_id)},
+            name=self._channel_name
+        )
+
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        return {
+            'members': self._members,
+            'member_usernames': self._member_usernames
+        }
+
+
+class VoiceChannelMembersSensor(SensorEntity):
+    def __init__(self, voice_channel: DiscordAsyncVoiceChannelState, attr: str, disabled_default: bool = False):
+        self.voice_channel = voice_channel
+        self.attr = attr
+        self._attr_entity_registry_enabled_default = not disabled_default
+        self.entity_id = ENTITY_ID_VOICE_CHANNEL_FORMAT.format(self.voice_channel._channel_id) + "_" + self.attr
+
+    @property
+    def available(self) -> bool:
+        return self.voice_channel.available
+
+    @property
+    def should_poll(self) -> bool:
+        return False
+
+    @property
+    def native_value(self) -> str:
+        if self.attr == "display_names":
+            return ", ".join(self.voice_channel._members) if self.voice_channel._members else ""
+        return ", ".join(self.voice_channel._member_usernames) if self.voice_channel._member_usernames else ""
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return ENTITY_ID_VOICE_CHANNEL_FORMAT.format(self.voice_channel._channel_id) + "_" + self.attr
+
+    @property
+    def name(self):
+        return self.voice_channel._channel_name + " " + self.attr
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.voice_channel.unique_id)},
+            name=self.voice_channel._channel_name
+        )

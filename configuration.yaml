@@ -12,20 +12,20 @@ zha:
 shell_command:
   git_update: 'cd /config && git add . && git commit -m "Config update: $(date "+%Y-%m-%d %H:%M")" && git push origin main'
 
-  sensor:
-    - platform: time_date
-      display_options:
-        - "time"
-        - "date"
-        - "date_time"
-        - "date_time_utc"
-        - "date_time_iso"
-        - "time_date"
-        - "time_utc"
-        #      - 'beat'
-        # SpotCast
-    - platform: spotcast
-      country: IE
+sensor:
+  - platform: time_date
+    display_options:
+      - "time"
+      - "date"
+      - "date_time"
+      - "date_time_utc"
+      - "date_time_iso"
+      - "time_date"
+      - "time_utc"
+      #      - 'beat'
+      # SpotCast
+  - platform: spotcast
+    country: IE
 
 frontend:
   javascript_version: latest
@@ -162,6 +162,70 @@ template:
         {% else %}
           0
         {% endif %}
+
+  - sensor:
+      - name: "Battery Type Inventory"
+        unique_id: battery_type_inventory
+        state: "Active"
+        attributes:
+          lookup: >
+            {% set data = {
+              "sensor.kitchen_motion_battery": "CR2032",
+              "sensor.living_room_switch_battery": "CR2032",
+              "sensor.hallway_leak_battery": "AAA",
+              "sensor.bedroom_temp_battery": "AAA"
+            } %}
+            {{ data | to_json }}
+
+  - sensor:
+      - name: "Total Battery Devices"
+        unique_id: total_battery_devices
+        icon: mdi:battery-check
+        unit_of_measurement: "devices"
+        state: >
+          {# Count sensors with device_class battery, including unavailable ones #}
+          {{ states.sensor 
+            | selectattr('attributes.device_class', 'defined')
+            | selectattr('attributes.device_class', 'eq', 'battery')
+            | map(attribute='entity_id')
+            | list | count }}
+
+  - sensor:
+      - name: "Batteries to Replace"
+        unique_id: batteries_to_replace
+        state: >
+          {% set low_threshold = 20 %}
+          {% set entities = states.sensor 
+            | selectattr('attributes.device_id', 'defined')
+            | selectattr('attributes.device_class', 'eq', 'battery')
+            | select('test', 'any', [
+                ('state', 'in', ['unavailable', 'unknown']),
+                ('state', 'lt', low_threshold | string)
+              ])
+            | map(attribute='entity_id') | list %}
+          {{ entities | count }}
+        attributes:
+          shopping_list: >
+            {% set inventory = state_attr('sensor.battery_type_inventory', 'lookup') %}
+            {% set low_threshold = 20 %}
+            {% set dead_entities = states.sensor 
+              | selectattr('attributes.device_class', 'eq', 'battery')
+              | select('test', 'any', [
+                  ('state', 'in', ['unavailable', 'unknown']),
+                  ('state', 'lt', low_threshold | string)
+                ])
+              | map(attribute='entity_id') | list %}
+
+            {% set ns = namespace(counts={}) %}
+            {% for entity in dead_entities %}
+              {% set b_type = inventory.get(entity, 'Unknown') %}
+              {% set ns.counts = dict(ns.counts, **{b_type: ns.counts.get(b_type, 0) + 1}) %}
+            {% endfor %}
+
+            {% for b_type, count in ns.counts.items() %}
+              {{ count }}x {{ b_type }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+
 # Configured InfluxDB to take time-series metrics
 influxdb:
   host: 192.168.0.35

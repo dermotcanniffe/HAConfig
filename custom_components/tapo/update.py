@@ -7,9 +7,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from plugp100.new.tapodevice import TapoDevice
-from plugp100.responses.firmware import LatestFirmware, FirmwareDownloadProgress, FirmwareDownloadStatus
-from plugp100.responses.tapo_exception import TapoException
+from plugp100.devices.base import TapoDevice
+from plugp100.errors import TapoException
+from plugp100.models.firmware import LatestFirmware, FirmwareDownloadProgress, FirmwareDownloadStatus
 
 from custom_components.tapo import DOMAIN, HassTapoDeviceData
 from custom_components.tapo.coordinators import TapoDataCoordinator
@@ -57,7 +57,7 @@ class TapoDeviceFirmwareDataCoordinator(TapoDataCoordinator):
         self._latest_firmware = (await self.device.get_latest_firmware()).get_or_raise()
         self._download_status = (await self.device.get_firmware_download_state()).get_or_raise()
         if self._download_status.status == FirmwareDownloadStatus.DOWNLOADING or \
-                self._download_status == FirmwareDownloadStatus.PREPARING:
+                self._download_status.status == FirmwareDownloadStatus.PREPARING:
             self.update_interval = POLL_DELAY_UPGRADE
         else:
             self.update_interval = POLL_DELAY_IDLE
@@ -117,7 +117,12 @@ class TapoDeviceFirmwareEntity(CoordinatedTapoEntity, UpdateEntity):
     @property
     def in_progress(self) -> bool | int | None:
         download_progress = self.coordinator.download_progress
-        return download_progress.download_in_progress if download_progress else 0
+        if download_progress is None:
+            return False
+        if download_progress.status in (FirmwareDownloadStatus.DOWNLOADING,
+                                        FirmwareDownloadStatus.PREPARING):
+            return download_progress.download_in_progress
+        return False
 
     @property
     def auto_update(self) -> bool:

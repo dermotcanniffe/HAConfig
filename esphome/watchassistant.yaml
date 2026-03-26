@@ -1,0 +1,93 @@
+esphome:
+  name: watchassistant
+  friendly_name: WatchAssistant
+  on_boot:
+    - priority: -100
+      then:
+        - output.turn_on: hold_pin
+        - light.turn_on: display_bl  # THIS TURNS THE SCREEN ON!
+        - select.set: {id: output_mode_select, option: "Full Mode"}
+
+packages:
+  m5_hal: github://dermotcanniffe/m5StickCPlus2_ESPHome_Assistant/m5stickc2_base.yaml@main
+
+# Secret credentials managed locally
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: !secret watch_assistant_ap_ssid
+    password: !secret watch_assistant_ap_password
+
+# Fully expanded to ensure !secret resolves correctly
+api:
+  encryption:
+    key: !secret watch_assistant_key
+
+ota:
+  - platform: esphome
+    password: !secret watch_assistant_ota
+
+voice_assistant:
+  id: va
+  microphone: stickc_microphone
+  speaker: media_out
+  on_listening:
+    - text_sensor.template.publish: {id: display_text, state: "Listening..."}
+  on_tts_start:
+    - text_sensor.template.publish: {id: display_text, state: !lambda 'return x;'}
+
+binary_sensor:
+  - platform: gpio
+    pin: {number: GPIO37, inverted: true}
+    name: "Button A"
+    on_press:
+      - if:
+          condition:
+            not: [voice_assistant.is_running]
+          then:
+            - voice_assistant.start: {silence_detection: false}
+    on_release:
+      - voice_assistant.stop
+  - platform: gpio
+    pin: {number: GPIO35, inverted: true}
+    id: button_c
+    name: "Button C"
+
+display:
+  - id: !extend watch_display
+    lambda: |-
+      static std::vector<std::string> lines;
+      static std::string text_buffer;
+      static std::string line_buffer;
+      static size_t current_char_index = 0;
+      
+      std::string response = id(display_text).state;
+      if (text_buffer != response || id(button_c).state) {
+          lines.clear();
+          text_buffer = response;
+          line_buffer.clear();
+          current_char_index = 0;
+      }
+
+      if (current_char_index < text_buffer.length()) {
+          char c = text_buffer[current_char_index++];
+          if (c == '\n' || line_buffer.length() >= 26) {
+              if (lines.size() >= 8) lines.erase(lines.begin());
+              lines.push_back(line_buffer);
+              line_buffer = (c == '\n') ? "" : std::string(1, c);
+          } else {
+              line_buffer += c;
+          }
+      }
+
+      it.fill(id(my_black));
+      int y = 0;
+      for (const auto& line : lines) {
+          it.print(0, y, id(font_id), id(my_green), line.c_str());
+          y += 16;
+      }
+      it.print(0, y, id(font_id), id(my_green), line_buffer.c_str());
+
+      float level = id(battery_percentage).state;
+      it.filled_rectangle(235, 135 - (level * 1.35), 5, (level * 1.35), id(my_green));

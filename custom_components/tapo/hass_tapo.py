@@ -4,10 +4,11 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
-from plugp100.discovery import DiscoveredDevice
-from plugp100.new.device_factory import connect, DeviceConnectConfiguration
-from plugp100.new.tapodevice import TapoDevice
+from plugp100.components.energy import EnergyComponent
+from plugp100.discovery import DiscoveredDevice, connect_discovered_device
+from plugp100.devices import DeviceConnectConfiguration, TapoDevice, TapoPlug, connect
 
+from custom_components.tapo.components.child_energy_component import ChildEnergyComponent
 from custom_components.tapo.const import DEFAULT_POLLING_RATE_S, CONF_DISCOVERED_DEVICE_INFO
 from custom_components.tapo.const import DOMAIN
 from custom_components.tapo.const import PLATFORMS
@@ -29,7 +30,11 @@ class HassTapo:
         if discover_data := self.entry.data.get(CONF_DISCOVERED_DEVICE_INFO):
             _LOGGER.info("Found discovered data, avoid to guess protocol")
             discovered_device = DiscoveredDevice.from_dict(discover_data)
-            device = await discovered_device.get_tapo_device(credentials=self.config.credentials, session=session)
+            device = await connect_discovered_device(
+                discovered_device=discovered_device,
+                credentials=self.config.credentials,
+                session=session,
+            )
         else:
             device = await connect(config=self.config, session=session)
 
@@ -49,12 +54,33 @@ class HassTapo:
     ):
         coordinator = TapoDataCoordinator(hass, device, polling_rate)
         await coordinator.async_config_entry_first_refresh()  # could raise ConfigEntryNotReady
+
+        child_coordinators = []
+        if isinstance(device, TapoPlug) and device.is_strip:
+            for socket in device.sockets:
+                # Register ChildEnergyComponent under the EnergyComponent key so that
+                # has_component/get_component(EnergyComponent) work transparently downstream.
+                socket._active_components[EnergyComponent] = ChildEnergyComponent(
+                    device.client, socket._child_id
+                )
+                socket_coordinator = TapoDataCoordinator(hass, socket, polling_rate)
+                try:
+                    await socket_coordinator.async_config_entry_first_refresh()
+                    child_coordinators.append(socket_coordinator)
+                except Exception:
+                    _LOGGER.warning(
+                        "Failed to set up energy coordinator for socket %s (%s); skipping",
+                        socket.nickname,
+                        socket._child_id,
+                        exc_info=True,
+                    )
+
         hass.data[DOMAIN][self.entry.entry_id] = HassTapoDeviceData(
             coordinator=coordinator,
             config_entry_update_unsub=self.entry.add_update_listener(
                 _on_options_update_listener
             ),
-            child_coordinators=[],
+            child_coordinators=child_coordinators,
             device=device,
         )
 

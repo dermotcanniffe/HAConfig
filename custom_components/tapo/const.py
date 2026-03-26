@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 NAME = "tapo"
 DOMAIN = "tapo"
-VERSION = "3.2.1"
+VERSION = "3.3.0-dev.1"
 
 DISCOVERY_FEATURE_FLAG = "discovery"
 DISCOVERY_INTERVAL = timedelta(minutes=10)
@@ -25,6 +25,7 @@ PLATFORMS = [
     Platform.CLIMATE,
     Platform.NUMBER,
     Platform.UPDATE,
+    Platform.EVENT,
 ]
 
 
@@ -41,6 +42,7 @@ STEP_ADVANCED_SETTINGS = "advanced_config"
 STEP_DISCOVERY_REQUIRE_AUTH = "discovery_auth_confirm"
 
 DEFAULT_POLLING_RATE_S = 30  # 30 seconds
+DEFAULT_BUTTON_POLLING_RATE_MS = 1000  # 1 second
 
 CONF_ALTERNATIVE_IP = "ip_address"
 

@@ -38,6 +38,8 @@ class DaikinOnectaDevice:
         return result
 
     def fill_device_info(self, device_info, management_point_type):
+        manufacturer = {"manufacturer": "Daikin"}
+        device_info.update(**manufacturer)
         management_points = self.daikin_data.get("managementPoints", [])
         for management_point in management_points:
             if management_point_type == management_point["managementPointType"]:
@@ -81,7 +83,6 @@ class DaikinOnectaDevice:
                 (DOMAIN, self.id)
             },
             connections={(CONNECTION_NETWORK_MAC, mac_add)},
-            manufacturer="Daikin",
             name=self.name,
             model_id=devicemodel,
         )
@@ -92,7 +93,9 @@ class DaikinOnectaDevice:
 
     "Helper to merge the json, prevents invalid reads when other threads are reading the daikin_data"
 
-    def merge_json(self, a: dict, b: dict, path=[]):
+    def merge_json(self, a: dict, b: dict, path=None):
+        if path is None:
+            path = []
         for key in b:
             if key in a:
                 if isinstance(a[key], dict) and isinstance(b[key], dict):

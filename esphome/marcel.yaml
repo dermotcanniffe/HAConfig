@@ -1,0 +1,175 @@
+esphome:
+  name: marcel
+  friendly_name: Marcel
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+api:
+  encryption:
+    key: "by7478g2nLUFQ0mRe7H+0eVmSA9ZwONaTEs+OHfObPk="
+
+ota:
+  - platform: esphome
+    password: "ad247556c94a73194708759fc953d930"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Marcel Fallback Hotspot"
+    password: "CjprzjqQvy0t"
+
+captive_portal:
+
+packages:
+  m5stack.atoms3r-with-echo-base: github://m5stack/esphome-yaml/common/atoms3r-with-echo-base.yaml@main    
+
+# ---------------------------------------------------------
+# EXTERNAL COMPONENT: The BMI270 Driver
+# ---------------------------------------------------------
+external_components:
+  - source: github://DennisGaida/m5stack-atoms3r-components/components@main
+    components: [bmi270_bmm150]
+
+# ---------------------------------------------------------
+# CUSTOM MAGIC 8-BALL LOGIC
+# ---------------------------------------------------------
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_8ball
+    size: 14
+  - file: "gfonts://Roboto"
+    id: font_8ball_large
+    size: 70
+
+globals:
+  - id: magic_8_ball_answer
+    type: std::string
+    initial_value: '""'
+  - id: ball_state
+    type: int
+    initial_value: '0' 
+  - id: shake_armed
+    type: bool
+    initial_value: 'false'
+
+# The actual BMI270 Sensor config!
+sensor:
+  - platform: bmi270_bmm150
+    i2c_id: bsp_bus
+    address: 0x68
+    update_interval: 50ms
+    acceleration_x:
+      id: accel_x
+    acceleration_y:
+      id: accel_y
+    acceleration_z:
+      id: accel_z
+
+binary_sensor:
+  - id: !extend user_button
+    on_click:
+      - min_length: 1000ms
+        max_length: 5000ms
+        then:
+          # If we are NOT in 8-ball mode, turn it on
+          - if:
+              condition:
+                lambda: 'return id(ball_state) == 0;'
+              then:
+                - lambda: |-
+                    id(ball_state) = 1;
+                    id(shake_armed) = false;
+                - display.page.show: magic_8_page
+                - component.update: atoms3r_lcd
+                - delay: 1s
+                - lambda: 'id(shake_armed) = true;'
+              # If we ARE in 8-ball mode, holding the button turns it off
+              else:
+                - lambda: |-
+                    id(ball_state) = 0;
+                    id(shake_armed) = false;
+                - script.execute: draw_display
+
+  - platform: template
+    id: shake_detector
+    lambda: |-
+      float x = id(accel_x).state;
+      float y = id(accel_y).state;
+      float z = id(accel_z).state;
+      
+      float mag = sqrt(x*x + y*y + z*z);
+      
+      // Standard acceleration in ESPHome is m/s², so baseline is 9.81
+      return abs(mag - 9.81) > 5.0;
+    on_state:
+      - if:
+          condition:
+            lambda: 'return x && id(ball_state) == 1 && id(shake_armed);'
+          then:
+            - script.execute: trigger_local_8_ball
+
+script:
+  - id: trigger_local_8_ball
+    then:
+      - lambda: |-
+          id(ball_state) = 2;
+          id(shake_armed) = false;
+          
+          const char* answers[20] = {
+            "It is\ncertain", "It is\ndecidedly\nso", "Without a\ndoubt", "Yes\ndefinitely", "You may\nrely on it",
+            "As I see\nit, yes", "Most\nlikely", "Outlook\ngood", "Yes", "Signs point\nto yes",
+            "Reply hazy,\ntry again", "Ask again\nlater", "Better not\ntell you\nnow", "Cannot\npredict\nnow", "Concentrate\nand ask\nagain",
+            "Don't count\non it", "My reply\nis no", "My sources\nsay no", "Outlook not\nso good", "Very\ndoubtful"
+          };
+          
+          id(magic_8_ball_answer) = answers[random_uint32() % 20];
+          
+      - component.update: atoms3r_lcd
+      
+      - homeassistant.service:
+          service: script.marcel_speak_8_ball
+          data:
+            answer: !lambda "return id(magic_8_ball_answer);"
+            
+      - delay: 7s
+      - lambda: |-
+          id(ball_state) = 0;
+          id(shake_armed) = false;
+      - script.execute: draw_display
+
+display:
+  - id: !extend atoms3r_lcd
+    pages:
+      - id: magic_8_page
+        lambda: |-
+          int state = id(ball_state);
+          
+          it.fill(Color::BLACK);
+          
+          if (state == 1) {
+            it.filled_circle(64, 64, 60, Color::WHITE);
+            it.printf(64, 64, id(font_8ball_large), Color::BLACK, TextAlign::CENTER, "8");
+          } 
+          else if (state == 2) {
+            it.filled_circle(64, 64, 60, Color(0, 0, 150));
+            it.filled_triangle(64, 15, 14, 100, 114, 100, Color::WHITE);
+            
+            std::string text = id(magic_8_ball_answer);
+            int y_pos = 42; 
+            size_t pos = 0;
+            
+            while ((pos = text.find('\n')) != std::string::npos) {
+                it.printf(64, y_pos, id(font_8ball), Color::BLACK, TextAlign::TOP_CENTER, "%s", text.substr(0, pos).c_str());
+                text.erase(0, pos + 1);
+                y_pos += 15; 
+            }
+            it.printf(64, y_pos, id(font_8ball), Color::BLACK, TextAlign::TOP_CENTER, "%s", text.c_str());
+          }

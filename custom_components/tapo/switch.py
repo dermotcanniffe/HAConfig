@@ -6,8 +6,9 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from plugp100.new.child.tapostripsocket import TapoStripSocket
-from plugp100.new.tapoplug import TapoPlug
+from plugp100.devices.children.strip_socket import TapoStripSocket
+from plugp100.devices.plug import TapoPlug
+
 
 from custom_components.tapo.const import DOMAIN
 from custom_components.tapo.coordinators import HassTapoDeviceData, TapoDataCoordinator
@@ -51,6 +52,23 @@ class TapoPlugEntity(CoordinatedTapoEntity, SwitchEntity):
         super().__init__(coordinator, plug)
         self._plug = plug
         self._attr_name = f"{self.device.nickname}"
+
+    @property
+    def device_info(self):
+        if isinstance(self._plug, TapoStripSocket):
+            # Strip sockets all share the strip's MAC, so including the MAC connection
+            # in device_info causes HA to merge all socket devices into the strip device.
+            # Use only the unique per-socket identifier and link via via_device instead.
+            return {
+                "identifiers": {(DOMAIN, self.device.device_id)},
+                "name": self.device.nickname,
+                "model": self.device.model,
+                "manufacturer": "TP-Link",
+                "sw_version": self.device.firmware_version,
+                "hw_version": self.device.device_info.hardware_version,
+                "via_device": (DOMAIN, self._plug._parent_info.device_id),
+            }
+        return self._device_info
 
     @property
     def is_on(self) -> Optional[bool]:

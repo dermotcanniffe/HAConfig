@@ -4,7 +4,7 @@ brf:
     path: TheHolyRoger/fading-random-colour-changes.yaml
     input:
       entities:
-      - light.tz3000_riwp3k79_ts0505a_light
+        - light.tz3000_riwp3k79_ts0505a_light
   icon: mdi:globe-light
 speak_llm_response:
   alias: Speak LLM Response
@@ -13,20 +13,68 @@ speak_llm_response:
       description: The text to send to the AI
       example: Tell me a joke
   sequence:
-  - action: conversation.process
-    data:
-      agent_id: conversation.chatgpt
-      text: '{{ prompt ~ '' Be extremely concise. Limit response to one sentence where
-        possible.'' }}'
-    response_variable: agent_response
-  - action: tts.speak
-    target:
-      entity_id:
-      - tts.home_assistant_cloud
-    data:
-      media_player_entity_id: media_player.friday_m5stack_atom_echo_241368
-      message: '{{ agent_response.response.speech.plain.speech | regex_replace(find=''[*#_]'',
-        replace='''', ignorecase=False) }}'
-  description: Send a Query to our LLM and Speak the Response on your chosen Media
+    - action: conversation.process
+      data:
+        agent_id: conversation.chatgpt
+        text:
+          "{{ prompt ~ ' Be extremely concise. Limit response to one sentence where
+          possible.' }}"
+      response_variable: agent_response
+    - action: tts.speak
+      target:
+        entity_id:
+          - tts.home_assistant_cloud
+      data:
+        media_player_entity_id: media_player.friday_m5stack_atom_echo_241368
+        message:
+          "{{ agent_response.response.speech.plain.speech | regex_replace(find='[*#_]',
+          replace='', ignorecase=False) }}"
+  description:
+    Send a Query to our LLM and Speak the Response on your chosen Media
     Player or Satellite Assistant
   icon: mdi:speaker-message
+# Music Playing logic
+play_music_intelligent:
+  alias: "Vector Music Controller"
+  mode: restart
+  fields:
+    media_content:
+      description: "What to play (e.g., 'Pink Floyd', 'Jazz Playlist')"
+      example: "Pink Floyd"
+    target_player:
+      description: "Entity ID of the speaker"
+      example: "media_player.kitchen_echo"
+  sequence:
+    - choose:
+        # Scenario A: Target is an Amazon Echo -> Use Spotcast
+        - conditions:
+            - condition: template
+              value_template: "{{ 'echo' in target_player or 'alexa' in target_player }}"
+          sequence:
+            - service: spotcast.start
+              data:
+                entity_id: "{{ target_player }}"
+                search: "{{ media_content }}"
+                force_playback: true
+
+        # Scenario B: Target is "The Kernel" or generic -> Use MASS (Better Quality)
+        - conditions:
+            - condition: template
+              value_template: "{{ 'echo' not in target_player }}"
+          sequence:
+            - service: mass.play_media
+              data:
+                entity_id: "{{ target_player }}"
+                media_id: "{{ media_content }}"
+                media_type: "track" # MASS is smart enough to figure this out usually
+                enqueue: "replace"
+
+marcel_speak_8_ball:
+  alias: "Marcel Speak 8 Ball"
+  sequence:
+    - action: tts.speak
+      target:
+        entity_id: tts.home_assistant_cloud
+      data:
+        media_player_entity_id: media_player.marcel_echo_base_player
+        message: "{{ answer | replace('\n', ' ') }}"

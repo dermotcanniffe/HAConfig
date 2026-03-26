@@ -2,35 +2,31 @@
   alias: LightMyOffice
   description: ''
   triggers:
-  - entity_id:
-    - binary_sensor.presence_sensor_fp2_69d1_presence_sensor_2
-    from: 'off'
-    to: 'on'
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 5
-    trigger: state
+  - trigger: state
+    entity_id:
+    - input_boolean.officemaxlight
+    from:
+    - 'off'
+    to:
+    - 'on'
   conditions: []
   actions:
   - sequence:
-    - type: turn_on
-      device_id: 04571816913049e291d7d38e15372f68
-      entity_id: 78f11fe7b0b792223613013a9c08d2cb
-      domain: switch
-    - device_id: b61d57901f71c9e6b5cd20f69d8085db
-      domain: mobile_app
-      type: notify
-      message: Welcome to your desk
-      title: DermoDesk
     - action: light.turn_on
       metadata: {}
-      data: {}
+      data:
+        brightness_pct: 100
+        transition: 2
+        color_temp: 500
       target:
-        device_id: 8467498be0ee1c90141fb1f69f1ac229
-  - condition: state
-    entity_id: sensor.presence_sensor_fp2_69d1_light_sensor_light_level
-    state: ''
+        device_id:
+        - 8467498be0ee1c90141fb1f69f1ac229
+        - a85e59063ca634d1921c3e3e39a7e014
+    - action: input_boolean.turn_off
+      metadata: {}
+      target:
+        entity_id: input_boolean.officemaxlight
+      data: {}
   mode: single
 - id: '1696872767999'
   alias: Hue Switch On/off
@@ -42,14 +38,7 @@
     subtype: turn_on
     trigger: device
   conditions: []
-  actions:
-  - action: light.toggle
-    metadata: {}
-    data:
-      kelvin: 2000
-      brightness_pct: 54
-    target:
-      entity_id: light.jerry
+  actions: []
   mode: single
 - id: '1696872810358'
   alias: Hue Switch
@@ -77,11 +66,7 @@
     subtype: dim_up
     trigger: device
   conditions: []
-  actions:
-  - device_id: 5ab232a8b4815f298f5069d36d74ac33
-    domain: light
-    entity_id: c5232d4d09037db46d8cd0906956133c
-    type: brightness_increase
+  actions: []
   mode: single
 - id: '1696873051760'
   alias: Hue Lower
@@ -93,11 +78,7 @@
     subtype: dim_down
     trigger: device
   conditions: []
-  actions:
-  - device_id: 5ab232a8b4815f298f5069d36d74ac33
-    domain: light
-    entity_id: c5232d4d09037db46d8cd0906956133c
-    type: brightness_decrease
+  actions: []
   mode: single
 - id: '1708948426039'
   alias: BedroomParty
@@ -458,33 +439,25 @@
       entity_id: input_boolean.christmas_lights
   mode: single
 - id: '1733010246735'
-  alias: LivingRoomAbsence
+  alias: FionnAbsence
   description: 5 minute trigger
   triggers:
-  - type: not_occupied
+  - type: not_present
     device_id: 578e9f677c97fbed1a43e7baba0339ae
     entity_id: f26cee35dbcac7f9754d9a1fa41d5bc1
     domain: binary_sensor
     trigger: device
-    for:
-      hours: 0
-      minutes: 2
-      seconds: 0
   conditions:
   - condition: state
     entity_id: input_boolean.autolightslivingroom
     state:
     - 'on'
+    enabled: false
   actions:
   - type: turn_off
-    device_id: 172e62497145d1b9dad623a94060d455
-    entity_id: a49cd6662af06d8ffc0421a92c136dd0
+    device_id: 52d3ce22236996054f75630d6c4df8bf
+    entity_id: f11a2803e482c78a6061f82ca2f68617
     domain: switch
-  - action: input_boolean.turn_off
-    metadata: {}
-    data: {}
-    target:
-      entity_id: input_boolean.christmas_lights
   mode: single
 - id: '1733422295150'
   alias: Turn off aircon
@@ -849,10 +822,10 @@
     domain: switch
   mode: single
 - id: '1757515770536'
-  alias: office manual light
+  alias: Landing Lamp Single
   description: ''
   triggers:
-  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+  - device_id: 483b70e0613599afebddaf6ec856248c
     domain: zha
     type: remote_button_short_press
     subtype: button_1
@@ -861,25 +834,31 @@
   actions:
   - action: light.toggle
     metadata: {}
-    data: {}
     target:
-      area_id: office
+      device_id: f165307ab26d2219cf8848f3d8756b83
+    data:
+      transition: 2
+      brightness_pct: 34
   mode: single
 - id: '1760736231119'
-  alias: Lightstrip only
+  alias: Landing Lamp double
   description: ''
   triggers:
-  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+  - device_id: 483b70e0613599afebddaf6ec856248c
     domain: zha
     type: remote_button_double_press
     subtype: button_1
     trigger: device
   conditions: []
   actions:
-  - type: toggle
-    device_id: a85e59063ca634d1921c3e3e39a7e014
-    entity_id: a3aaf336af7ae344e96e8f72e40591e9
-    domain: light
+  - action: light.toggle
+    metadata: {}
+    target:
+      device_id: f165307ab26d2219cf8848f3d8756b83
+    data:
+      transition: 2
+      color_temp_kelvin: 2166
+      brightness_pct: 100
   mode: single
 - id: '1765473024480'
   alias: Porch Light Toggle
@@ -1015,14 +994,59 @@
     - action: input_boolean.toggle
       metadata: {}
       target:
-        entity_id: input_boolean.studiolights
-      data: {}
-    - action: input_boolean.toggle
-      metadata: {}
-      target:
         entity_id: input_boolean.llmquery
       data: {}
+    - choose:
+      - conditions:
+        - condition: switch.is_off
+          target:
+            entity_id: switch.bot_0aa7
+          options:
+            behavior: any
+        sequence:
+        - action: switch.turn_on
+          metadata: {}
+          target:
+            entity_id: switch.bot_0aa7
+          data: {}
+      - conditions:
+        - condition: switch.is_off
+          target:
+            entity_id: switch.bot_5d47
+          options:
+            behavior: any
+        sequence:
+        - action: switch.turn_on
+          metadata: {}
+          data: {}
+          target:
+            entity_id: switch.bot_5d47
     else:
+    - choose:
+      - conditions:
+        - condition: switch.is_on
+          target:
+            entity_id: switch.bot_0aa7
+          options:
+            behavior: any
+        sequence:
+        - action: switch.turn_off
+          metadata: {}
+          target:
+            entity_id: switch.bot_0aa7
+          data: {}
+      - conditions:
+        - condition: switch.is_on
+          target:
+            entity_id: switch.bot_5d47
+          options:
+            behavior: any
+        sequence:
+        - action: switch.turn_off
+          metadata: {}
+          data: {}
+          target:
+            entity_id: switch.bot_5d47
     - action: assist_satellite.announce
       metadata: {}
       target:
@@ -1030,11 +1054,6 @@
       data:
         message: Powering down primary systems
         preannounce: true
-    - action: input_boolean.toggle
-      metadata: {}
-      target:
-        entity_id: input_boolean.studiolights
-      data: {}
     - type: turn_off
       device_id: 04571816913049e291d7d38e15372f68
       entity_id: 78f11fe7b0b792223613013a9c08d2cb
@@ -1052,3 +1071,152 @@
     data:
       prompt: '"Hello. I''d like to know the outside temperature, and the Office temperature.
         Then give me a sarcastic summary of the weather"'
+- id: '1766528199662'
+  alias: Increase Office Brightness
+  description: ''
+  triggers:
+  - device_id: aff4dab3a7307f7b1f2749c3cf3971e3
+    domain: zha
+    type: device_rotated
+    subtype: right
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: 8467498be0ee1c90141fb1f69f1ac229
+    domain: light
+    entity_id: 62db9aa22b54d82e9effbfa1c23200d1
+    type: brightness_increase
+  - device_id: a85e59063ca634d1921c3e3e39a7e014
+    domain: light
+    entity_id: a3aaf336af7ae344e96e8f72e40591e9
+    type: brightness_increase
+  mode: single
+- id: '1766528340498'
+  alias: Decrease Office Brightness
+  description: ''
+  triggers:
+  - device_id: aff4dab3a7307f7b1f2749c3cf3971e3
+    domain: zha
+    type: device_rotated
+    subtype: left
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: 8467498be0ee1c90141fb1f69f1ac229
+    domain: light
+    entity_id: 62db9aa22b54d82e9effbfa1c23200d1
+    type: brightness_decrease
+  - device_id: a85e59063ca634d1921c3e3e39a7e014
+    domain: light
+    entity_id: a3aaf336af7ae344e96e8f72e40591e9
+    type: brightness_decrease
+  mode: single
+- id: '1768504231696'
+  alias: Toggle Jerry
+  description: ''
+  triggers:
+  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+    domain: zha
+    type: remote_button_short_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 5ab232a8b4815f298f5069d36d74ac33
+    entity_id: c5232d4d09037db46d8cd0906956133c
+    domain: light
+  mode: single
+- id: '1768523175176'
+  alias: LindsayTimer
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - automation.lindsaytimer
+    from:
+    - active
+    to:
+    - idle
+  conditions: []
+  actions:
+  - action: light.toggle
+    metadata: {}
+    target:
+      entity_id: light.rabbit_lamp
+    data:
+      brightness_pct: 100
+  - action: light.toggle
+    metadata: {}
+    target:
+      entity_id: light.rabbit_lamp
+    data: {}
+  mode: single
+- id: '1769036980498'
+  alias: BedroomMoodLight
+  description: ''
+  triggers:
+  - device_id: 48381863bd8397e58654d89869bb6897
+    domain: zha
+    type: remote_button_short_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: e02a2a6a2a1ff90a89bb60771fcf493d
+    entity_id: 530175f4eded10e49df8f762081c2313
+    domain: light
+  mode: single
+- id: '1769037200887'
+  alias: DermoCharger
+  description: ''
+  triggers:
+  - device_id: 48381863bd8397e58654d89869bb6897
+    domain: zha
+    type: remote_button_double_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 1fade9cbb6355f4a24248d2057eb7013
+    entity_id: 9a229e7775ce7f9a8a7022635391451a
+    domain: switch
+  mode: single
+- id: '1770484843976'
+  alias: Toggle PlugBob
+  description: ''
+  triggers:
+  - device_id: c5fdaa1b976cac66801aeb00e1e133bd
+    domain: zha
+    type: remote_button_double_press
+    subtype: button_1
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: 52d3ce22236996054f75630d6c4df8bf
+    entity_id: f11a2803e482c78a6061f82ca2f68617
+    domain: switch
+  mode: single
+- id: '1774283785387'
+  alias: OfficeParty
+  description: Colour Cycling Lights
+  use_blueprint:
+    path: Twanne/party_lights.yaml
+    input:
+      party_mode_trigger: input_boolean.officeparty
+      target_light:
+      - light.office_lightstrip
+      - light.office_overhead_light_light
+      - light.friday_m5stack_atom_echo_241368
+      sync_lights: false
+      time_between_changes:
+        hours: 0
+        minutes: 0
+        seconds: 10
+      transition_time: 8
+      color_mode: random
+      brightness_mode: fixed
+      fixed_brightness_pct: 100

@@ -18,7 +18,7 @@
         "volkswagencarnet"
     ],
     "requirements": [
-        "volkswagencarnet==5.3.3"
+        "volkswagencarnet==5.4.5"
     ],
-    "version": "v5.3.4"
+    "version": "v5.4.5"
 }
