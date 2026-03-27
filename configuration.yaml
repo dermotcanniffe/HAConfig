@@ -6,7 +6,7 @@ logger:
 zha_toolkit:
 # LCARS Clock
 zha:
-  custom_quirks_path: custom_zha_quirks/
+  custom_quirks_path: /config/custom_zha_quirks/
 
 # Integrating GIT support for HA config YAML files - https://github.com/dermotcanniffe/HAConfig - via SSH
 shell_command:
