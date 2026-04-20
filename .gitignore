@@ -15,3 +15,5 @@ zigbee.db
 zigbee.db-wal
 zigbee.db-shm
 .ha_run.lock
+.cache
+__pycache__

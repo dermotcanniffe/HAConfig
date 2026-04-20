@@ -1209,7 +1209,6 @@
       party_mode_trigger: input_boolean.officeparty
       target_light:
       - light.office_lightstrip
-      - light.office_overhead_light_light
       - light.friday_m5stack_atom_echo_241368
       sync_lights: false
       time_between_changes:
