@@ -67,12 +67,10 @@ action:
     sequence: !input long
   - conditions:
     - condition: template
-      value_template: '{{ trigger.event.data.command == "stop_rotation" and trigger.event.data.args.rotation_direction
-        == -1 }}'
+      value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "left" }}'
     sequence: !input left
   - conditions:
     - condition: template
-      value_template: '{{ trigger.event.data.command == "stop_rotation" and trigger.event.data.args.rotation_direction
-        == 1 }}'
+      value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "right" }}'
     sequence: !input right
   default: []
