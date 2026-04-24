@@ -11,7 +11,7 @@ blueprint:
       selector:
         device:
           integration: zha
-          manufacturer: LUMI
+          #manufacturer: LUMI
           model: lumi.remote.rkba01
           multiple: false
     single:
