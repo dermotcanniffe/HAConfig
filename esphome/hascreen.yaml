@@ -19,7 +19,7 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    password: "ad247556c94a73194708759fc953d930"
     on_begin: # prevent screen flickering during OTA
       - light.turn_off:
           id: display_backlight
