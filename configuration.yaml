@@ -227,12 +227,17 @@ template:
             {% endfor %}
 
 # Configured InfluxDB to take time-series metrics
+# influxdb:
+#  host: 192.168.0.35
+#  port: 8086
+#  database: homeassistant
+#  username: adminha
+#  password: adminha
+#  max_retries: 3
+#  default_measurement: state
+# Add specific entities to track if needed
+# Configured InfluxDB to take time-series metrics
 influxdb:
-  host: 192.168.0.35
-  port: 8086
-  database: homeassistant
-  username: adminha
-  password: adminha
   max_retries: 3
   default_measurement: state
   # Add specific entities to track if needed

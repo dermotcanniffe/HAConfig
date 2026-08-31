@@ -91,25 +91,10 @@ class DaikinOnectaDevice:
 
         return info
 
-    "Helper to merge the json, prevents invalid reads when other threads are reading the daikin_data"
-
-    def merge_json(self, a: dict, b: dict, path=None):
-        if path is None:
-            path = []
-        for key in b:
-            if key in a:
-                if isinstance(a[key], dict) and isinstance(b[key], dict):
-                    self.merge_json(a[key], b[key], path + [str(key)])
-                else:
-                    a[key] = b[key]
-            else:
-                a[key] = b[key]
-        return a
-
     def setJsonData(self, desc):
-        """Set a device description and parse/traverse data structure."""
-        self.merge_json(self.daikin_data, desc)
-        _LOGGER.info("Device '%s' received new data from the Daikin cloud, isCloudConnectionUp '%s'", self.name, self.available)
+        """Overwrite the json data for this device."""
+        self.daikin_data = desc
+        _LOGGER.debug("Device '%s' received new data from the Daikin cloud, isCloudConnectionUp '%s'", self.name, self.available)
 
     async def patch(self, id, embeddedId, dataPoint, dataPointPath, value):
         setPath = "/v1/gateway-devices/" + id + "/management-points/" + embeddedId + "/characteristics/" + dataPoint
@@ -118,11 +103,11 @@ class DaikinOnectaDevice:
             setBody["path"] = dataPointPath
         setOptions = json.dumps(setBody)
 
-        _LOGGER.info("Path: " + setPath + " , options: %s", setOptions)
+        _LOGGER.debug("Path: %s , options: %s", setPath, setOptions)
 
         res = await self.api.doBearerRequest("PATCH", setPath, setOptions)
 
-        _LOGGER.info("Result: {}".format(res))
+        _LOGGER.debug(f"Result: {res}")
 
         return res
 
@@ -130,22 +115,24 @@ class DaikinOnectaDevice:
         setPath = "/v1/gateway-devices/" + id + "/management-points/" + embeddedId + "/" + dataPoint
         setOptions = json.dumps(value)
 
-        _LOGGER.info("Path: " + setPath + " , options: %s", setOptions)
+        _LOGGER.debug("Path: %s , options: %s", setPath, setOptions)
 
         res = await self.api.doBearerRequest("POST", setPath, setOptions)
 
-        _LOGGER.info("Result: {}".format(res))
+        _LOGGER.debug(f"Result: {res}")
 
         return res
 
-    async def put(self, id, embeddedId, dataPoint, value):
+    async def put(self, id, embeddedId, dataPoint, value=None):
         setPath = "/v1/gateway-devices/" + id + "/management-points/" + embeddedId + "/" + dataPoint
-        setOptions = json.dumps(value)
+        setOptions = None
+        if value is not None:
+            setOptions = json.dumps(value)
 
-        _LOGGER.info("Path: " + setPath + " , options: %s", setOptions)
+        _LOGGER.debug("Path: %s , options: %s", setPath, setOptions)
 
         res = await self.api.doBearerRequest("PUT", setPath, setOptions)
 
-        _LOGGER.info("Result: {}".format(res))
+        _LOGGER.debug(f"Result: {res}")
 
         return res

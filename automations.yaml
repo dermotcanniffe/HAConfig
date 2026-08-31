@@ -648,36 +648,43 @@
       single:
       - action: light.toggle
         metadata: {}
-        data:
-          kelvin: 2738
-          brightness_pct: 71
         target:
           entity_id: light.kitchen_spot_group
-      double: []
+        data:
+          color_temp_kelvin: 3719
+          brightness_pct: 100
+      double:
+      - action: light.toggle
+        metadata: {}
+        target:
+          entity_id: light.kitchen_spot_group
+        data:
+          color_temp_kelvin: 4123
+          brightness_pct: 100
       long:
       - action: light.toggle
         metadata: {}
-        data:
-          kelvin: 2645
-          brightness_pct: 71
         target:
           entity_id: light.kitchen_spot_group
+        data:
+          color_temp_kelvin: 4123
+          brightness_pct: 100
       left:
       - action: light.turn_on
         metadata: {}
-        data:
-          brightness_step_pct: -20
-          kelvin: 2109
         target:
           entity_id: light.kitchen_spot_group
+        data:
+          color_temp_kelvin: 4133
+          brightness_step_pct: -10
       right:
       - action: light.turn_on
         metadata: {}
-        data:
-          brightness_step_pct: 20
-          kelvin: 2000
         target:
           entity_id: light.kitchen_spot_group
+        data:
+          color_temp_kelvin: 4133
+          brightness_step_pct: 10
 - id: '1734915795247'
   alias: ToggleLivingRoomLampsOn
   description: ''
@@ -1218,4 +1225,42 @@
       transition_time: 8
       color_mode: random
       brightness_mode: fixed
-      fixed_brightness_pct: 100
+      fixed_brightness_pct: 53
+      max_brightness_pct: 100
+      fixed_brightness_entity: input_number.officepartybrightness
+- id: '1777032498811'
+  alias: New Dining Dial Actions
+  description: ''
+  use_blueprint:
+    path: nwithan8/aqara_h1_rotary_dial_remote.yaml
+    input:
+      dial: 598045522db06807e189c9890cd6b6f9
+      single:
+      - action: light.toggle
+        metadata: {}
+        target:
+          entity_id: light.dining_light_group
+        data:
+          brightness_pct: 3
+      double: []
+      long:
+      - action: light.toggle
+        metadata: {}
+        target:
+          entity_id: light.dining_light_group
+        data:
+          brightness_pct: 3
+      left:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          entity_id: light.dining_light_group
+        data:
+          brightness_step_pct: -10
+      right:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          entity_id: light.dining_light_group
+        data:
+          brightness_step_pct: 10

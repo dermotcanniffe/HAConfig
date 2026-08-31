@@ -3,6 +3,7 @@
 import asyncio
 import datetime as dt
 import functools
+import inspect
 import locale
 import logging
 import math
@@ -11,6 +12,7 @@ import time
 
 from croniter import croniter
 
+from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 from homeassistant.core import Context
 from homeassistant.helpers import sun
 from homeassistant.util import dt as dt_util
@@ -151,10 +153,11 @@ class TrigTime:
 
                 async def func_call(func, func_name, new_ast_ctx, *args, **kwargs):
                     """Call user function inside task.create()."""
-                    ret = await new_ast_ctx.call_func(func, func_name, *args, **kwargs)
-                    if new_ast_ctx.get_exception_obj():
-                        new_ast_ctx.get_logger().error(new_ast_ctx.get_exception_long())
-                    return ret
+                    try:
+                        return await new_ast_ctx.call_func(func, func_name, *args, **kwargs)
+                    except Exception as e:
+                        new_ast_ctx.log_exception(e)
+                        return None
 
                 try:
                     if isinstance(func, (EvalFunc, EvalFuncVar)):
@@ -288,9 +291,6 @@ class TrigTime:
                 Function.install_ast_funcs(state_trig_eval)
                 state_trig_eval.parse(state_trig_expr, mode="eval")
                 state_trig_ident = await state_trig_eval.get_names()
-                exc = state_trig_eval.get_exception_obj()
-                if exc is not None:
-                    raise exc
 
             state_trig_ident.update(state_trig_ident_any)
             if check_state_expr_on_start and state_trig_eval:
@@ -299,9 +299,6 @@ class TrigTime:
                 #
                 new_vars = State.notify_var_get(state_trig_ident, {})
                 state_trig_ok = await state_trig_eval.eval(new_vars)
-                exc = state_trig_eval.get_exception_obj()
-                if exc is not None:
-                    raise exc
                 if state_hold_false is not None and not state_check_now:
                     #
                     # if state_trig_ok we wait until it is false;
@@ -337,12 +334,12 @@ class TrigTime:
                     logger_name=ast_ctx.get_logger_name(),
                 )
                 Function.install_ast_funcs(event_trig_expr)
-                event_trig_expr.parse(event_trigger[1], mode="eval")
-                exc = event_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    event_trig_expr.parse(event_trigger[1], mode="eval")
+                except:
                     if len(state_trig_ident) > 0:
                         State.notify_del(state_trig_ident, notify_q)
-                    raise exc
+                    raise
             Event.notify_add(event_trigger[0], notify_q)
         if mqtt_trigger is not None:
             if isinstance(mqtt_trigger, str):
@@ -354,12 +351,12 @@ class TrigTime:
                     logger_name=ast_ctx.get_logger_name(),
                 )
                 Function.install_ast_funcs(mqtt_trig_expr)
-                mqtt_trig_expr.parse(mqtt_trigger[1], mode="eval")
-                exc = mqtt_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    mqtt_trig_expr.parse(mqtt_trigger[1], mode="eval")
+                except:
                     if len(state_trig_ident) > 0:
                         State.notify_del(state_trig_ident, notify_q)
-                    raise exc
+                    raise
             await Mqtt.notify_add(mqtt_trigger[0], notify_q, encoding=mqtt_trigger_encoding)
         if webhook_trigger is not None:
             if isinstance(webhook_trigger, str):
@@ -371,12 +368,12 @@ class TrigTime:
                     logger_name=ast_ctx.get_logger_name(),
                 )
                 Function.install_ast_funcs(webhook_trig_expr)
-                webhook_trig_expr.parse(webhook_trigger[1], mode="eval")
-                exc = webhook_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    webhook_trig_expr.parse(webhook_trigger[1], mode="eval")
+                except:
                     if len(state_trig_ident) > 0:
                         State.notify_del(state_trig_ident, notify_q)
-                    raise exc
+                    raise
             if webhook_methods is None:
                 webhook_methods = {"POST", "PUT"}
             Webhook.notify_add(webhook_trigger[0], webhook_local_only, webhook_methods, notify_q)
@@ -486,8 +483,11 @@ class TrigTime:
                         continue
 
                     if state_trig_eval:
-                        state_trig_ok = await state_trig_eval.eval(new_vars)
-                        exc = state_trig_eval.get_exception_obj()
+                        state_trig_ok = None
+                        try:
+                            state_trig_ok = await state_trig_eval.eval(new_vars)
+                        except Exception as e:
+                            exc = e
                         if exc is not None:
                             break
 
@@ -546,9 +546,10 @@ class TrigTime:
                 if event_trig_expr is None:
                     ret = notify_info
                     break
-                event_trig_ok = await event_trig_expr.eval(notify_info)
-                exc = event_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    event_trig_ok = await event_trig_expr.eval(notify_info)
+                except Exception as e:
+                    exc = e
                     break
                 if event_trig_ok:
                     ret = notify_info
@@ -557,9 +558,10 @@ class TrigTime:
                 if mqtt_trig_expr is None:
                     ret = notify_info
                     break
-                mqtt_trig_ok = await mqtt_trig_expr.eval(notify_info)
-                exc = mqtt_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    mqtt_trig_ok = await mqtt_trig_expr.eval(notify_info)
+                except Exception as e:
+                    exc = e
                     break
                 if mqtt_trig_ok:
                     ret = notify_info
@@ -568,9 +570,10 @@ class TrigTime:
                 if webhook_trig_expr is None:
                     ret = notify_info
                     break
-                webhook_trig_ok = await webhook_trig_expr.eval(notify_info)
-                exc = webhook_trig_expr.get_exception_obj()
-                if exc is not None:
+                try:
+                    webhook_trig_ok = await webhook_trig_expr.eval(notify_info)
+                except Exception as e:
+                    exc = e
                     break
                 if webhook_trig_ok:
                     ret = notify_info
@@ -597,7 +600,7 @@ class TrigTime:
     @classmethod
     async def user_task_executor(cls, func, *args, **kwargs):
         """Implement task.executor()."""
-        if asyncio.iscoroutinefunction(func) or not callable(func):
+        if inspect.iscoroutinefunction(func) or not callable(func):
             raise TypeError(f"function {func} is not callable by task.executor")
         if isinstance(func, EvalFuncVar):
             raise TypeError(
@@ -670,28 +673,15 @@ class TrigTime:
             else:
                 hour, mins, sec = int(match0[1]), int(match0[2]), 0
             dt_str = dt_str[len(match0.group(0)) :]
-        elif dt_str.startswith("sunrise") or dt_str.startswith("sunset"):
-            location = sun.get_astral_location(cls.hass)
-            if isinstance(location, tuple):
-                # HA core-2021.5.0 included this breaking change: https://github.com/home-assistant/core/pull/48573.
-                # As part of the upgrade to astral 2.2, sun.get_astral_location() now returns a tuple including the
-                # elevation.  We just want the astral.location.Location object.
-                location = location[0]
-            try:
-                if dt_str.startswith("sunrise"):
-                    time_sun = await cls.hass.async_add_executor_job(
-                        location.sunrise, dt.date(year, month, day)
-                    )
-                    dt_str = dt_str[7:]
-                else:
-                    time_sun = await cls.hass.async_add_executor_job(
-                        location.sunset, dt.date(year, month, day)
-                    )
-                    dt_str = dt_str[6:]
-            except Exception:
+        elif dt_str.startswith(SUN_EVENT_SUNRISE) or dt_str.startswith(SUN_EVENT_SUNSET):
+            event = SUN_EVENT_SUNRISE if dt_str.startswith(SUN_EVENT_SUNRISE) else SUN_EVENT_SUNSET
+            time_sun = sun.get_astral_event_date(cls.hass, event, dt.date(year, month, day))
+            if time_sun is None:
                 _LOGGER.warning("'%s' not defined at this latitude", dt_str)
                 # return something in the past so it is ignored
                 return now - dt.timedelta(days=100), fixed_date
+            time_sun = dt_util.as_local(time_sun)
+            dt_str = dt_str[len(event) :]
             now += time_sun.date() - now.date()
             hour, mins, sec = time_sun.hour, time_sun.minute, time_sun.second
         elif dt_str.startswith("noon"):
@@ -926,10 +916,6 @@ class TrigInfo:
             )
             Function.install_ast_funcs(self.active_expr)
             self.active_expr.parse(self.state_active, mode="eval")
-            exc = self.active_expr.get_exception_long()
-            if exc is not None:
-                self.active_expr.get_logger().error(exc)
-                return
 
         if "time_trigger" in trig_cfg and self.time_trigger is None:
             self.run_on_startup = True
@@ -969,10 +955,10 @@ class TrigInfo:
                     f"{self.name} @state_trigger()", self.global_ctx, logger_name=self.name
                 )
                 Function.install_ast_funcs(self.state_trig_eval)
-                self.state_trig_eval.parse(self.state_trig_expr, mode="eval")
-                exc = self.state_trig_eval.get_exception_long()
-                if exc is not None:
-                    self.state_trig_eval.get_logger().error(exc)
+                try:
+                    self.state_trig_eval.parse(self.state_trig_expr, mode="eval")
+                except Exception as exc:
+                    self.state_trig_eval.log_exception(exc)
                     return
             self.have_trigger = True
 
@@ -984,10 +970,10 @@ class TrigInfo:
                     logger_name=self.name,
                 )
                 Function.install_ast_funcs(self.event_trig_expr)
-                self.event_trig_expr.parse(self.event_trigger[1], mode="eval")
-                exc = self.event_trig_expr.get_exception_long()
-                if exc is not None:
-                    self.event_trig_expr.get_logger().error(exc)
+                try:
+                    self.event_trig_expr.parse(self.event_trigger[1], mode="eval")
+                except Exception as exc:
+                    self.event_trig_expr.log_exception(exc)
                     return
             self.have_trigger = True
 
@@ -999,10 +985,10 @@ class TrigInfo:
                     logger_name=self.name,
                 )
                 Function.install_ast_funcs(self.mqtt_trig_expr)
-                self.mqtt_trig_expr.parse(self.mqtt_trigger[1], mode="eval")
-                exc = self.mqtt_trig_expr.get_exception_long()
-                if exc is not None:
-                    self.mqtt_trig_expr.get_logger().error(exc)
+                try:
+                    self.mqtt_trig_expr.parse(self.mqtt_trigger[1], mode="eval")
+                except Exception as exc:
+                    self.mqtt_trig_expr.log_exception(exc)
                     return
             self.have_trigger = True
 
@@ -1014,10 +1000,10 @@ class TrigInfo:
                     logger_name=self.name,
                 )
                 Function.install_ast_funcs(self.webhook_trig_expr)
-                self.webhook_trig_expr.parse(self.webhook_trigger[1], mode="eval")
-                exc = self.webhook_trig_expr.get_exception_long()
-                if exc is not None:
-                    self.webhook_trig_expr.get_logger().error(exc)
+                try:
+                    self.webhook_trig_expr.parse(self.webhook_trigger[1], mode="eval")
+                except Exception as exc:
+                    self.webhook_trig_expr.log_exception(exc)
                     return
             self.have_trigger = True
 
@@ -1055,7 +1041,6 @@ class TrigInfo:
         """Task that runs for each trigger, waiting for the next trigger and calling the function."""
 
         try:
-
             if self.state_trigger is not None:
                 self.state_trig_ident = set()
                 if self.state_user_watch:
@@ -1084,7 +1069,9 @@ class TrigInfo:
                 Event.notify_add(self.event_trigger[0], self.notify_q)
             if self.mqtt_trigger is not None:
                 _LOGGER.debug("trigger %s adding mqtt_trigger %s", self.name, self.mqtt_trigger[0])
-                await Mqtt.notify_add(self.mqtt_trigger[0], self.notify_q, encoding=self.mqtt_trigger_encoding)
+                await Mqtt.notify_add(
+                    self.mqtt_trigger[0], self.notify_q, encoding=self.mqtt_trigger_encoding
+                )
             if self.webhook_trigger is not None:
                 _LOGGER.debug("trigger %s adding webhook_trigger %s", self.name, self.webhook_trigger[0])
                 Webhook.notify_add(
@@ -1198,11 +1185,7 @@ class TrigInfo:
                             continue
 
                         if self.state_trig_eval:
-                            trig_ok = await self.state_trig_eval.eval(new_vars)
-                            exc = self.state_trig_eval.get_exception_long()
-                            if exc is not None:
-                                self.state_trig_eval.get_logger().error(exc)
-                                trig_ok = False
+                            trig_ok = await self._call_expression(self.state_trig_eval, new_vars)
 
                             if self.state_hold_false is not None:
                                 if "var_name" not in func_args:
@@ -1271,17 +1254,17 @@ class TrigInfo:
                     func_args = notify_info
                     user_kwargs = self.event_trigger_kwargs.get("kwargs", {})
                     if self.event_trig_expr:
-                        trig_ok = await self.event_trig_expr.eval(notify_info)
+                        trig_ok = await self._call_expression(self.event_trig_expr, notify_info)
                 elif notify_type == "mqtt":
                     func_args = notify_info
                     user_kwargs = self.mqtt_trigger_kwargs.get("kwargs", {})
                     if self.mqtt_trig_expr:
-                        trig_ok = await self.mqtt_trig_expr.eval(notify_info)
+                        trig_ok = await self._call_expression(self.mqtt_trig_expr, notify_info)
                 elif notify_type == "webhook":
                     func_args = notify_info
                     user_kwargs = self.webhook_trigger_kwargs.get("kwargs", {})
                     if self.webhook_trig_expr:
-                        trig_ok = await self.webhook_trig_expr.eval(notify_info)
+                        trig_ok = await self._call_expression(self.webhook_trig_expr, notify_info)
 
                 else:
                     user_kwargs = self.time_trigger_kwargs.get("kwargs", {})
@@ -1292,10 +1275,10 @@ class TrigInfo:
                 #
                 if trig_ok and self.active_expr:
                     active_vars = State.notify_var_get(self.state_active_ident, new_vars)
-                    trig_ok = await self.active_expr.eval(active_vars)
-                    exc = self.active_expr.get_exception_long()
-                    if exc is not None:
-                        self.active_expr.get_logger().error(exc)
+                    try:
+                        trig_ok = await self.active_expr.eval(active_vars)
+                    except Exception as e:
+                        self.active_expr.log_exception(e)
                         trig_ok = False
                 if trig_ok and self.time_active:
                     trig_ok = await TrigTime.timer_active_check(self.time_active, now, startup_time)
@@ -1340,6 +1323,13 @@ class TrigInfo:
             if self.webhook_trigger is not None:
                 Webhook.notify_del(self.webhook_trigger[0], self.notify_q)
             return
+
+    async def _call_expression(self, ast_expr, notify_info):
+        try:
+            return await ast_expr.eval(notify_info)
+        except Exception as exc:
+            ast_expr.log_exception(exc)
+            return False
 
     def call_action(self, notify_type, func_args, run_task=True):
         """Call the trigger action function."""
@@ -1392,9 +1382,10 @@ class TrigInfo:
 
             if task_unique and task_unique_func:
                 await task_unique_func(task_unique)
-            await ast_ctx.call_func(func, None, **kwargs)
-            if ast_ctx.get_exception_obj():
-                ast_ctx.get_logger().error(ast_ctx.get_exception_long())
+            try:
+                await ast_ctx.call_func(func, None, **kwargs)
+            except Exception as e:
+                ast_ctx.log_exception(e)
 
         func = do_func_call(
             self.action,

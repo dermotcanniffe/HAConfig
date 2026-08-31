@@ -212,7 +212,7 @@ def normalize_filename(filename: str) -> str:
     """
     result = "".join([c if re.match(r"[\w.]", c) else "-" for c in filename])
     LOGGER.debug(f"Normalize {filename}->{result}")
-    return "".join([c if re.match(r"[\w.]", c) else "-" for c in filename])
+    return result
 
 
 class RadioType(Enum):
@@ -265,12 +265,6 @@ def get_radiotype(app):
             pass
 
         LOGGER.debug("Did not recognize _api '%s'", type(app._api))
-        # try:
-        #    from zigpy_cc.api import API
-        #    if isinstance(app._api, API):
-        #        return RadioType.ZIGPY_CC
-        # except Exception:  # nosec
-        #    pass
 
     LOGGER.debug("Type recognition for '%s' not implemented", type(app))
     return RadioType.UNKNOWN
@@ -326,10 +320,6 @@ async def get_radio_version(app):
                 return zigpy_xbee.__version__
 
             return await get_version_async("zigpy_xbee")
-
-        # if rt == RadioType.ZIGPY_CC:
-        #     import zigpy_cc
-        #     return zigpy_cc.__version__
 
     LOGGER.debug("Type recognition for '%s' not implemented", type(app))
     return None
@@ -429,6 +419,19 @@ async def get_device(app, listener, reference):
     return app.get_device(ieee)
 
 
+def get_coordinator_ieee(app):
+    """Return the coordinator's IEEE address.
+
+    Recent zigpy releases dropped the ``ControllerApplication.ieee``
+    shortcut in favour of ``app.state.node_info.ieee``. Prefer the new
+    location and fall back to the legacy attribute for older zigpy.
+    """
+    try:
+        return app.state.node_info.ieee
+    except AttributeError:
+        return app.ieee
+
+
 # Save state to db
 def set_state(
     hass, entity_id, value, key=None, allow_create=False, force_update=False
@@ -483,7 +486,7 @@ def find_endpoint(dev, cluster_id):
         for key, value in dev.endpoints.items():
             if key == 0:
                 continue
-            if cluster_id in value.in_clusters:
+            if cluster_id in value.out_clusters:
                 endpoint_id = key
                 cnt = cnt + 1
 
@@ -576,12 +579,6 @@ def value_to_jsonable(value):
             # Serialization results in "bytes"
             value = value.serialize()
         if isinstance(value, bytes):
-            # "bytes" is not compatible with json, convert
-            # try:
-            #    value = value.split(b"\x00")[0].decode().strip()
-            # except:
-            #    value = value.hex()
-
             try:
                 value = str(value, encoding="ascii")
             except Exception:
@@ -775,7 +772,7 @@ def attr_encode(attr_val_in, attr_type):  # noqa C901
         attr_obj = f.TypeValue(attr_type, t.uint32_t(compare_val))
     elif attr_type == 0x24:
         compare_val = str2int(attr_val_in)
-        attr_obj = f.TypeValue(attr_type, t.uint32_t(compare_val))
+        attr_obj = f.TypeValue(attr_type, t.uint40_t(compare_val))
     elif attr_type == 0x25:
         compare_val = str2int(attr_val_in)
         attr_obj = f.TypeValue(attr_type, t.uint48_t(compare_val))
@@ -799,7 +796,7 @@ def attr_encode(attr_val_in, attr_type):  # noqa C901
         attr_obj = f.TypeValue(attr_type, t.int32s(compare_val))
     elif attr_type == 0x2C:
         compare_val = str2int(attr_val_in)
-        attr_obj = f.TypeValue(attr_type, t.int32s(compare_val))
+        attr_obj = f.TypeValue(attr_type, t.int40s(compare_val))
     elif attr_type == 0x2D:
         compare_val = str2int(attr_val_in)
         attr_obj = f.TypeValue(attr_type, t.int48s(compare_val))
@@ -835,11 +832,8 @@ def attr_encode(attr_val_in, attr_type):  # noqa C901
         #      (/detect items type from read).
 
         if isinstance(attr_val_in, str):
-            attr_val_in = str.encode(attr_val_in[1:])
-
-        # Determine value to compare read values
-        #       with the value (to be) written [see attr_write].
-        compare_val = t.List[t.uint8_t](attr_val_in)
+            # Strip type byte (first char) and encode
+            attr_val_in = attr_val_in[1:].encode("utf-8")
 
         # Get type of array items
         array_item_type = attr_val_in[0]
@@ -849,6 +843,10 @@ def attr_encode(attr_val_in, attr_type):  # noqa C901
 
         # Construct value to write as specific zigpy object
         attr_obj = f.TypeValue(attr_type, f.Array(array_item_type, array_body))
+
+        # Determine value to compare read values
+        #       with the value (to be) written [see attr_write].
+        compare_val = t.List[t.uint8_t](attr_val_in)  # Only if needed
     elif attr_type == 0xFF or attr_type is None:
         compare_val = str2int(attr_val_in)
         # This should not happen ideally
@@ -1062,9 +1060,6 @@ def extractParams(  # noqa: C901
     if P.WRITE_IF_EQUAL in rawParams:
         params[p.WRITE_IF_EQUAL] = str2bool(rawParams[P.WRITE_IF_EQUAL])
 
-    if P.STATE_ATTR in rawParams:
-        params[p.STATE_ATTR] = rawParams[P.STATE_ATTR]
-
     if P.STATE_VALUE_TEMPLATE in rawParams:
         params[p.STATE_VALUE_TEMPLATE] = rawParams[P.STATE_VALUE_TEMPLATE]
 
@@ -1217,25 +1212,35 @@ async def cluster_read_attributes(
     cluster, attrs, manufacturer=None
 ) -> tuple[list, list]:
     """Read attributes from cluster, retryable"""
+    if is_zigpy_ge("1.2.0"):
+        return await cluster.read_attributes_raw(
+            attrs, manufacturer=manufacturer
+        )
     return await cluster.read_attributes(attrs, manufacturer=manufacturer)
 
 
-# The zigpy library does not offer retryable on read_attributes.
+# The zigpy library does not offer retryable on write_attributes.
 # Add it ourselves
 @retryable(
     (DeliveryError, asyncio.CancelledError, asyncio.TimeoutError), tries=1
 )
 async def cluster__write_attributes(cluster, attrs, manufacturer=None):
     """Write cluster attributes from cluster, retryable"""
+    if is_zigpy_ge("1.2.0"):
+        return await cluster.write_attributes_raw(
+            attrs, manufacturer_code=manufacturer
+        )
     return await cluster._write_attributes(attrs, manufacturer=manufacturer)
+
+
+_LOCAL_DIR = os.path.dirname(__file__) + "/local/"
+if not os.path.isdir(_LOCAL_DIR):
+    os.mkdir(_LOCAL_DIR)
 
 
 def get_local_dir() -> str:
     """Provide directory for local files that survive updates"""
-    local_dir = os.path.dirname(__file__) + "/local/"
-    if not os.path.isdir(local_dir):
-        os.mkdir(local_dir)
-    return local_dir
+    return _LOCAL_DIR
 
 
 def is_zigpy_ge(version_str: str) -> bool:
@@ -1245,7 +1250,7 @@ def is_zigpy_ge(version_str: str) -> bool:
 
 
 def is_ha_ge(version_str: str) -> bool:
-    """Test if zigpy library is newer than version"""
+    """Test if HA library is newer than version"""
     return parse_version(getHaVersion()) >= parse_version(version_str)
 
 
@@ -1260,3 +1265,50 @@ def get_hass(gateway: ZHAGateway):
             msg += f"Attributes available {dir(gateway)}."
         raise ValueError(msg)
     return hass
+
+
+STATUS_ENUMERATIONS = {
+    0x00: "SUCCESS",
+    0x01: "FAILURE",
+    0x70: "REQUEST_DENIED",
+    0x71: "MULTIPLE_REQUEST_NOT_ALLOWED",
+    0x72: "INDICATION_REDIRECTION_TO_AP",
+    0x73: "PREFERENCE_DENIED",
+    0x74: "PREFERENCE_IGNORED",
+    0x7E: "NOT_AUTHORIZED",
+    0x7F: "RESERVED_FIELD_NOT_ZERO",
+    0x80: "MALFORMED_COMMAND",
+    0x81: "UNSUP_CLUSTER_COMMAND",
+    0x85: "INVALID_FIELD",
+    0x86: "UNSUPPORTED_ATTRIBUTE",
+    0x87: "INVALID_VALUE",
+    0x88: "READ_ONLY",
+    0x89: "INSUFFICIENT_SPACE",
+    0x8A: "DUPLICATE_EXISTS",
+    0x8B: "NOT_FOUND",
+    0x8C: "UNREPORTABLE_ATTRIBUTE",
+    0x8D: "INVALID_DATA_TYPE",
+    0x8E: "INVALID_SELECTOR",
+    0x8F: "WRITE_ONLY",
+    0x90: "INCONSISTENT_STARTUP_STATE",
+    0x91: "DEFINED_OUT_OF_BAND",
+    0x92: "INCONSISTENT",
+    0x93: "ACTION_DENIED",
+    0x94: "TIMEOUT",
+    0x95: "ABORT",
+    0x96: "INVALID_IMAGE",
+    0x97: "WAIT_FOR_DATA",
+    0x98: "NO_IMAGE_AVAILABLE",
+    0x99: "REQUIRE_MORE_IMAGE",
+    0x9A: "NOTIFICATION_PENDING",
+    0xC0: "HARDWARE_FAILURE",
+    0xC1: "SOFTWARE_FAILURE",
+    0xC2: "CALIBRATION_ERROR",
+    0xC3: "UNSUPPORTED_CLUSTER",
+    0xC4: "LIMIT_REACHED",
+}
+
+
+def get_status_string(status_code: int) -> str:
+    """Returns the string representation of a Zigbee status code."""
+    return STATUS_ENUMERATIONS.get(status_code, "UNKNOWN_STATUS")

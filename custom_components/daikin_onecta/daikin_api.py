@@ -3,12 +3,10 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from http import HTTPStatus
 
-from aiohttp import ClientResponseError
+from aiohttp import ClientError
 from homeassistant import config_entries
 from homeassistant import core
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -55,19 +53,10 @@ class DaikinApi:
         # to prevent receiving old settings while a PATCH is ongoing.
         self._cloud_lock = asyncio.Lock()
 
-        _LOGGER.info("Daikin Onecta API initialized.")
+        _LOGGER.debug("Daikin Onecta API initialized.")
 
     async def async_get_access_token(self) -> str:
-        """Return a valid access token."""
-        if not self.session.valid_token:
-            try:
-                await self.session.async_ensure_token_valid()
-            except ClientResponseError as ex:
-                # https://developers.home-assistant.io/docs/integration_setup_failures/#handling-expired-credentials
-                if ex.status == HTTPStatus.BAD_REQUEST:
-                    raise ConfigEntryAuthFailed(f"Problem refreshing token: {ex}") from ex
-                raise ex
-
+        await self.session.async_ensure_token_valid()
         return self.session.token["access_token"]
 
     async def doBearerRequest(self, method, resource_url, options=None):
@@ -76,13 +65,13 @@ class DaikinApi:
 
             headers = {"Accept-Encoding": "gzip", "Authorization": "Bearer " + token, "Content-Type": "application/json"}
 
-            _LOGGER.info("Request URL: %s", resource_url)
-            _LOGGER.info("Request %s Options: %s", method, options)
+            _LOGGER.debug("Request URL: %s", resource_url)
+            _LOGGER.debug("Request %s Options: %s", method, options)
 
             try:
                 async with self._daikin_session.request(method=method, url=DAIKIN_API_URL + resource_url, headers=headers, data=options) as resp:
                     response_data = await resp.text()
-                    _LOGGER.info("Response status: %s Text: %s Limit: %s", resp.status, response_data, self.rate_limits)
+                    _LOGGER.debug("Response status: %s Text: %s Limit: %s", resp.status, response_data, self.rate_limits)
 
                     self.rate_limits["minute"] = int(resp.headers.get("X-RateLimit-Limit-minute", 0))
                     self.rate_limits["day"] = int(resp.headers.get("X-RateLimit-Limit-day", 0))
@@ -136,6 +125,10 @@ class DaikinApi:
                         self._last_patch_call = datetime.now()
                         return True
 
+            except (ClientError, asyncio.TimeoutError):
+                # Propagate transient network errors so Home Assistant marks the
+                # coordinator update as failed and retries it.
+                raise
             except Exception as e:
                 _LOGGER.error("REQUEST TYPE %s FAILED: %s", method, e)
 

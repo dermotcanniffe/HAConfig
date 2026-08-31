@@ -1,13 +1,12 @@
 """Constants for the tapo integration."""
+
 from datetime import timedelta
-from enum import Enum
-from typing import Union
 
 from homeassistant.const import Platform
 
 NAME = "tapo"
 DOMAIN = "tapo"
-VERSION = "3.3.0-dev.1"
+VERSION = "3.5.3"
 
 DISCOVERY_FEATURE_FLAG = "discovery"
 DISCOVERY_INTERVAL = timedelta(minutes=10)

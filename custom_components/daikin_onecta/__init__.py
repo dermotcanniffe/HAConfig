@@ -1,14 +1,19 @@
 """Platform for the Daikin AC."""
 import logging
 
+import aiohttp
 import jwt
-from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import OAuth2TokenRequestError
+from homeassistant.exceptions import OAuth2TokenRequestReauthError
 from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.config_entry_oauth2_flow import ImplementationUnavailableError
 
+from .const import DOMAIN
 from .coordinator import OnectaDataUpdateCoordinator
 from .coordinator import OnectaRuntimeData
 from .daikin_api import DaikinApi
@@ -23,6 +28,7 @@ PLATFORMS = [
     Platform.SELECT,
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
+    Platform.UPDATE,
 ]
 
 
@@ -33,22 +39,30 @@ async def async_setup(hass, config):
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Establish connection with Daikin."""
-    implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, config_entry)
+    try:
+        implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, config_entry)
+    except ImplementationUnavailableError as err:
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="oauth2_implementation_unavailable",
+        ) from err
 
     daikin_api = DaikinApi(hass, config_entry, implementation)
 
     try:
         await daikin_api.async_get_access_token()
-    except ClientError as err:
+    except OAuth2TokenRequestReauthError as err:
+        raise ConfigEntryAuthFailed from err
+    except (OAuth2TokenRequestError, aiohttp.ClientError) as err:
         raise ConfigEntryNotReady from err
 
     config_entry.runtime_data = OnectaRuntimeData(coordinator=None, daikin_api=daikin_api, devices={})
     config_entry.runtime_data.coordinator = OnectaDataUpdateCoordinator(hass, config_entry)
 
-    try:
-        await config_entry.runtime_data.coordinator.async_config_entry_first_refresh()
-    except Exception as ex:
-        raise ConfigEntryNotReady(f"Config Not Ready: {ex}")
+    # Let the coordinator raise ConfigEntryAuthFailed / ConfigEntryNotReady directly.
+    # Do not wrap first_refresh in a broad Exception handler: that would convert
+    # reauth failures into ConfigEntryNotReady and skip the reauth flow.
+    await config_entry.runtime_data.coordinator.async_config_entry_first_refresh()
 
     config_entry.async_on_unload(config_entry.add_update_listener(update_listener))
 
@@ -68,6 +82,7 @@ async def update_listener(hass, config_entry):
     onecta_data: OnectaRuntimeData = config_entry.runtime_data
     coordinator = onecta_data.coordinator
     coordinator.update_settings(config_entry)
+    coordinator.async_update_listeners()
 
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
@@ -82,8 +97,8 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
                         config_entry.data["token"]["access_token"],
                         options={"verify_signature": False},
                     )["sub"]
-                except (jwt.DecodeError, KeyError) as err:
-                    _LOGGER.exception("Failed to decode JWT during migration: %s", err)
+                except (jwt.DecodeError, KeyError):
+                    _LOGGER.exception("Failed to decode JWT during migration")
                     return False
                 hass.config_entries.async_update_entry(
                     config_entry,

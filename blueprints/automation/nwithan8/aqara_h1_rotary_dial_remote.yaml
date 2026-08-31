@@ -1,7 +1,8 @@
 blueprint:
   name: Aqara H1 Rotary Dial - Remote (Event Mode)
   source_url: https://raw.githubusercontent.com/nwithan8/configs/main/home_assistant/blueprints/automations/aqara_h1_rotary_dial_remote.yaml
-  description: This automation allows using an Aqara H1 Rotary Dial (ZigBee) to trigger
+  description:
+    This automation allows using an Aqara H1 Rotary Dial (ZigBee) to trigger
     actions. Requires a custom quirk if using with ZHA.
   domain: automation
   input:
@@ -12,7 +13,8 @@ blueprint:
         device:
           integration: zha
           #manufacturer: LUMI
-          model: lumi.remote.rkba01
+          #model: lumi.remote.rkba01
+          model: "Smart Knob H1 (wireless)"
           multiple: false
     single:
       name: Single Press
@@ -47,30 +49,30 @@ blueprint:
 mode: restart
 max_exceeded: silent
 trigger:
-- platform: event
-  event_type: zha_event
-  event_data:
-    device_id: !input dial
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input dial
 action:
-- choose:
-  - conditions:
-    - condition: template
-      value_template: '{{ trigger.event.data.command == "1_single" }}'
-    sequence: !input single
-  - conditions:
-    - condition: template
-      value_template: '{{ trigger.event.data.command == "1_double" }}'
-    sequence: !input double
-  - conditions:
-    - condition: template
-      value_template: '{{ trigger.event.data.command == "1_hold" }}'
-    sequence: !input long
-  - conditions:
-    - condition: template
-      value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "left" }}'
-    sequence: !input left
-  - conditions:
-    - condition: template
-      value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "right" }}'
-    sequence: !input right
-  default: []
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: '{{ trigger.event.data.command == "1_single" }}'
+        sequence: !input single
+      - conditions:
+          - condition: template
+            value_template: '{{ trigger.event.data.command == "1_double" }}'
+        sequence: !input double
+      - conditions:
+          - condition: template
+            value_template: '{{ trigger.event.data.command == "1_hold" }}'
+        sequence: !input long
+      - conditions:
+          - condition: template
+            value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "left" }}'
+        sequence: !input left
+      - conditions:
+          - condition: template
+            value_template: '{{ trigger.event.data.command == "stopped_rotating" and trigger.event.data.args.device_rotated == "right" }}'
+        sequence: !input right
+    default: []

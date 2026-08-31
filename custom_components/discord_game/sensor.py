@@ -28,6 +28,10 @@ ENTITY_ID_FORMAT = "sensor.discord_user_{}"
 ENTITY_ID_CHANNEL_FORMAT = "sensor.discord_channel_{}"
 ENTITY_ID_VOICE_CHANNEL_FORMAT = "sensor.discord_voice_channel_{}"
 
+# How long a gateway disconnect must last before entities are marked unavailable.
+# Short websocket drops that resume within this window are invisible to HA.
+DISCONNECT_GRACE_PERIOD = 120
+
 _PATTERN_WITH_SIZE = re.compile(
     r'^https://cdn\.discordapp\.com/app-assets/\d+/mp:external/([^/]+)/(https/.+?)(_\d+)\.(?:png|jpg|jpeg|webp)$'
 )
@@ -46,7 +50,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_IMAGE_FORMAT, default='webp'): vol.In(['png', 'webp', 'jpeg', 'jpg']),
 })
 
-SENSORS = ["user_name", "display_name", "roles", "game", "game_state", "game_details", "game_image_small", "game_image_large",
+SENSORS = ["user_name", "display_name", "desktop_status", "mobile_status", "web_status", "roles", "game", "game_state", "game_details", "game_image_small", "game_image_large",
            "game_image_small_text", "game_image_large_text", "game_image_capsule_231x87", "game_image_capsule_467x181",
            "game_image_capsule_616x353", "game_image_header", "game_image_hero_capsule", "game_image_library_600x900", "game_image_library_hero",
            "game_image_logo", "game_image_page_bg_raw", "streaming", "streaming_url", "streaming_details", "listening", "listening_url",
@@ -74,6 +78,7 @@ async def async_setup_entry(
 
     bot._dc_game_connected = False
     bot_shutting_down = False
+    disconnect_grace_task: Union[asyncio.Task, None] = None
 
     # noinspection PyUnusedLocal
     async def async_stop_server(event):
@@ -99,6 +104,23 @@ async def async_setup_entry(
                 if sensor.hass is not None:
                     sensor.async_schedule_update_ha_state(False)
 
+    def _cancel_disconnect_grace():
+        nonlocal disconnect_grace_task
+        if disconnect_grace_task is not None and not disconnect_grace_task.done():
+            disconnect_grace_task.cancel()
+        disconnect_grace_task = None
+
+    async def _mark_unavailable_after_grace():
+        """Mark entities unavailable only if the disconnect outlasts the grace period."""
+        try:
+            await asyncio.sleep(DISCONNECT_GRACE_PERIOD)
+        except asyncio.CancelledError:
+            return
+        if bot._dc_game_connected:
+            bot._dc_game_connected = False
+            _LOGGER.warning("Discord bot disconnected for more than %s seconds, marking entities unavailable", DISCONNECT_GRACE_PERIOD)
+            _update_all_entity_states()
+
     async def _reconnect_bot():
         """Reconnect the bot with exponential backoff."""
         delay = 10
@@ -118,6 +140,7 @@ async def async_setup_entry(
                 delay = min(delay * 2, max_delay)
 
     def task_callback(task: asyncio.Task):
+        _cancel_disconnect_grace()
         bot._dc_game_connected = False
         _update_all_entity_states()
         if bot_shutting_down:
@@ -201,6 +224,9 @@ async def async_setup_entry(
 
     async def update_discord_entity(_watcher: DiscordAsyncMemberState, discord_member: Member):
         _watcher._state = discord_member.status
+        _watcher.desktop_status = str(discord_member.desktop_status)
+        _watcher.mobile_status = str(discord_member.mobile_status)
+        _watcher.web_status = str(discord_member.web_status)
         _watcher.roles = [role.name for role in discord_member.roles]
         _watcher.display_name = discord_member.display_name
         _watcher.activity_state = None
@@ -382,6 +408,7 @@ async def async_setup_entry(
 
     @bot.event
     async def on_ready():
+        _cancel_disconnect_grace()
         bot._dc_game_connected = True
         _LOGGER.info("Discord bot connected (on_ready)")
         users = {str(_user.id): _user for _user in bot.users}
@@ -414,13 +441,14 @@ async def async_setup_entry(
 
     @bot.event
     async def on_disconnect():
-        if bot._dc_game_connected:
-            bot._dc_game_connected = False
-            _LOGGER.warning("Discord bot disconnected")
-            _update_all_entity_states()
+        nonlocal disconnect_grace_task
+        if bot._dc_game_connected and (disconnect_grace_task is None or disconnect_grace_task.done()):
+            _LOGGER.debug("Discord bot disconnected, waiting %s seconds before marking entities unavailable", DISCONNECT_GRACE_PERIOD)
+            disconnect_grace_task = asyncio.create_task(_mark_unavailable_after_grace())
 
     @bot.event
     async def on_resumed():
+        _cancel_disconnect_grace()
         if not bot._dc_game_connected:
             bot._dc_game_connected = True
             _LOGGER.info("Discord bot resumed connection")
@@ -595,6 +623,9 @@ class DiscordAsyncMemberState(SensorEntity):
         self.activity_state = 'unknown'
         self.user_name = user_name
         self.display_name = None
+        self.desktop_status = None
+        self.mobile_status = None
+        self.web_status = None
         self.roles = None
         self.game = None
         self.game_state = None
@@ -688,6 +719,9 @@ class DiscordAsyncMemberState(SensorEntity):
             'user_id': str(self.userid),
             'user_name': self.user_name,
             'display_name': self.display_name,
+            'desktop_status': self.desktop_status,
+            'mobile_status': self.mobile_status,
+            'web_status': self.web_status,
             'roles': self.roles,
             'game': self.game,
             'game_state': self.game_state,

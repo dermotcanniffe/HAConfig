@@ -19,6 +19,7 @@ from .const import (
     AIR_PURIFIER_TYPE,
     DIY_AIR_PURIFIER_TYPE,
     CONF_WITH_SPEED,
+    CONF_WITH_SWING,
     CONF_POWER_SENSOR,
 )
 
@@ -62,14 +63,14 @@ class SwitchBotRemoteFan(FanEntity, RestoreEntity):
             if sb.type in IR_AIR_PURIFIER_TYPES
             else SPEED_COMMANDS[0]
         )
-        self._supported_features = 0
+        self._supported_features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
 
         self._power_sensor = options.get(CONF_POWER_SENSOR, None)
 
         if options.get(CONF_WITH_SPEED, None):
-            self._supported_features = FanEntityFeature.SET_SPEED
+            self._supported_features |= FanEntityFeature.SET_SPEED
 
-        if sb.type not in IR_AIR_PURIFIER_TYPES:
+        if options.get(CONF_WITH_SWING, None) and sb.type not in IR_AIR_PURIFIER_TYPES:
             self._supported_features |= FanEntityFeature.OSCILLATE
 
     async def send_command(self, *args):
@@ -141,10 +142,11 @@ class SwitchBotRemoteFan(FanEntity, RestoreEntity):
         self._state = STATE_ON
         self._is_on = True
 
-        if percentage is None:
-            percentage = self.percentage
+        if FanEntityFeature.SET_SPEED in self._supported_features:
+            if percentage is None:
+                percentage = self.percentage
 
-        await self.async_set_percentage(percentage)
+            await self.async_set_percentage(percentage)
 
     async def async_turn_off(self, **kwargs):
         """Send the power on command."""
@@ -184,7 +186,8 @@ class SwitchBotRemoteFan(FanEntity, RestoreEntity):
 
         if self._power_sensor:
             async_track_state_change_event(
-                self.hass, [self._power_sensor], self._async_power_sensor_changed
+                self.hass, [
+                    self._power_sensor], self._async_power_sensor_changed
             )
 
             power_sensor_state = self.hass.states.get(self._power_sensor)

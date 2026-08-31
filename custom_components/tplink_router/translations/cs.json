@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Nastavení integrace",
+        "data": {
+          "host": "Host",
+          "username": "Login",
+          "password": "Heslo",
+          "scan_interval": "Interval skenování v sekundách",
+          "verify_ssl": "Kontrolovat ssl pro HTTPS připojení",
+          "support_vpn": "Zahrnout podporu pro VPN server a klienta",
+          "support_tracker": "Zahrnout sledování zařízení (vypněte u routerů, které nejsou přístupové body, aby se předešlo duplicitám)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Upravit parametry nastavení.",
+        "data": {
+          "host": "Host",
+          "username": "Login",
+          "password": "Heslo",
+          "scan_interval": "Interval skenování v sekundách",
+          "verify_ssl": "Kontrolovat ssl pro HTTPS připojení",
+          "support_vpn": "Zahrnout podporu pro VPN server a klienta",
+          "support_tracker": "Zahrnout sledování zařízení (vypněte u routerů, které nejsou přístupové body, aby se předešlo duplicitám)"
+        }
+      }
+    }
+  },
+  "services": {
+    "send_sms": {
+      "name": "Send SMS",
+      "description": "Send SMS",
+      "fields": {
+        "number": {
+          "name": "Phone",
+          "description": "Phone number"
+        },
+        "text": {
+          "name": "Message",
+          "description": "Text"
+        },
+        "device": {
+          "name": "Router",
+          "description": "Select the TP-Link router to send sms"
+        }
+      }
+    }
+  }
+}

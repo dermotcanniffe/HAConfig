@@ -216,20 +216,68 @@ class AlexaNotificationService(BaseNotificationService):
         processed_targets = []
         for target in targets:
             _LOGGER.debug("Processing: %s", target)
+            if not isinstance(target, str):
+                processed_targets.append(target)
+                _LOGGER.debug("Processed non-string target: %s", processed_targets)
+                continue
             try:
-                processed_targets += json.loads(target)
+                parsed = json.loads(target)
+                if isinstance(parsed, list):
+                    processed_targets.extend(parsed)
+                else:
+                    processed_targets.append(parsed)
                 _LOGGER.debug("Processed Target by json: %s", processed_targets)
             except json.JSONDecodeError:
-                if target.find(","):
-                    processed_targets += list(
-                        map(lambda x: x.strip(), target.split(","))
-                    )
-                    _LOGGER.debug("Processed Target by string: %s", processed_targets)
-        entities = self.convert(processed_targets, type_="entities")
-        try:
-            entities.extend(expand_entity_ids(self.hass, entities))
-        except ValueError:
-            _LOGGER.debug("Invalid Home Assistant entity in %s", entities)
+                if "," in target:
+                    processed_targets += [
+                        item.strip() for item in target.split(",") if item.strip()
+                    ]
+                else:
+                    processed_targets.append(target.strip())
+                _LOGGER.debug("Processed Target by string: %s", processed_targets)
+        # Expand Home Assistant group targets into member entity IDs before
+        # passing to convert(). The convert() method resolves Alexa-specific
+        # identifiers (entity_id, name, serial), but it does not expand HA groups.
+        #
+        # Supported group forms:
+        # - media_player.* helper groups with an entity_id attribute
+        # - old-style YAML group.* entities, via expand_entity_ids()
+        #
+        # Expansion happens here, while targets are still plain strings. Do not run
+        # expand_entity_ids() after convert(), because convert() returns Alexa
+        # objects, not entity ID strings.
+        expanded_targets = []
+
+        for target in processed_targets:
+            if not isinstance(target, str):
+                expanded_targets.append(target)
+                continue
+
+            # UI media_player group helper
+            if (
+                target.startswith("media_player.")
+                and (state := self.hass.states.get(target)) is not None
+                and "entity_id" in state.attributes
+            ):
+                members = state.attributes["entity_id"]
+                if isinstance(members, (list, tuple)):
+                    expanded_targets.extend(members)
+                else:
+                    expanded_targets.append(target)
+                continue
+
+            # Old-style YAML group.*, expand before convert()
+            if target.startswith("group."):
+                try:
+                    expanded_targets.extend(expand_entity_ids(self.hass, [target]))
+                except ValueError:
+                    _LOGGER.debug("Invalid Home Assistant group target: %s", target)
+                    expanded_targets.append(target)
+                continue
+
+            expanded_targets.append(target)
+
+        entities = self.convert(expanded_targets, type_="entities")
         tasks = []
         for account, account_dict in self.hass.data[DATA_ALEXAMEDIA][
             "accounts"

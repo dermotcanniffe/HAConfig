@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Nastavenie integrácie",
+        "data": {
+          "host": "Hostiteľ",
+          "username": "Meno",
+          "password": "Heslo",
+          "scan_interval": "Interval skenovania aktualizácií v sekundách",
+          "verify_ssl": "Overte ssl pre pripojenie https",
+          "support_vpn": "Zahrnúť podporu pre VPN server a klienta",
+          "support_tracker": "Zahrnúť sledovanie zariadení (vypnite pre routery, ktoré nie sú prístupové body, aby sa predišlo duplicitám)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Upravte parametre smerovača.",
+        "data": {
+          "host": "Hostiteľ",
+          "username": "Meno",
+          "password": "Heslo",
+          "scan_interval": "Interval skenovania aktualizácií v sekundách",
+          "verify_ssl": "Overte ssl pre pripojenie https",
+          "support_vpn": "Zahrnúť podporu pre VPN server a klienta",
+          "support_tracker": "Zahrnúť sledovanie zariadení (vypnite pre routery, ktoré nie sú prístupové body, aby sa predišlo duplicitám)"
+        }
+      }
+    }
+  },
+  "services": {
+    "send_sms": {
+      "name": "Pošlite SMS",
+      "description": "Pošlite SMS",
+      "fields": {
+        "number": {
+          "name": "Phone",
+          "description": "Telefónne číslo"
+        },
+        "text": {
+          "name": "Správa",
+          "description": "Text"
+        },
+        "device": {
+          "name": "Smerovač",
+          "description": "Vyberte smerovač TP-Link na odosielanie SMS"
+        }
+      }
+    }
+  }
+}

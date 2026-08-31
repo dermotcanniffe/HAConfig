@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Конфигурация на интеграцията",
+        "data": {
+          "host": "Хост",
+          "username": "Потребителско име",
+          "password": "Парола",
+          "scan_interval": "Интервал за сканиране за актуализации в секунди",
+          "verify_ssl": "Проверка на SSL за HTTPS връзка",
+          "support_vpn": "Включи поддръжка за VPN сървър и клиент",
+          "support_tracker": "Включи проследяване на устройства (изключи за рутери, които не са точки за достъп, за да се избегнат дублирания)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Редактиране на параметрите за рутера.",
+        "data": {
+          "host": "Хост",
+          "username": "Потребителско име",
+          "password": "Парола",
+          "scan_interval": "Интервал за сканиране за актуализации в секунди",
+          "verify_ssl": "Проверка на SSL за HTTPS връзка",
+          "support_vpn": "Включи поддръжка за VPN сървър и клиент",
+          "support_tracker": "Включи проследяване на устройства (изключи за рутери, които не са точки за достъп, за да се избегнат дублирания)"
+        }
+      }
+    }
+  },
+  "services": {
+    "send_sms": {
+      "name": "Send SMS",
+      "description": "Send SMS",
+      "fields": {
+        "number": {
+          "name": "Phone",
+          "description": "Phone number"
+        },
+        "text": {
+          "name": "Message",
+          "description": "Text"
+        },
+        "device": {
+          "name": "Router",
+          "description": "Select the TP-Link router to send sms"
+        }
+      }
+    }
+  }
+}

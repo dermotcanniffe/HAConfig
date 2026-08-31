@@ -12,10 +12,13 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.selector import BooleanSelector
 from homeassistant.helpers.selector import NumberSelector
 from homeassistant.helpers.selector import NumberSelectorConfig
 from homeassistant.helpers.selector import TimeSelector
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
+from .const import CONF_HOMEKIT_FAN_MODE_ALIASES
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,6 +67,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     ): NumberSelector(
                         NumberSelectorConfig(min=20, max=300, step=1),
                     ),
+                    vol.Required(
+                        CONF_HOMEKIT_FAN_MODE_ALIASES,
+                        default=self.options.get(CONF_HOMEKIT_FAN_MODE_ALIASES, False),
+                    ): BooleanSelector(),
                 }
             ),
             errors=errors,
@@ -96,8 +103,8 @@ class FlowHandler(
         """Create an oauth config entry or update existing entry for reauth."""
         try:
             unique_id = jwt.decode(data["token"]["access_token"], options={"verify_signature": False})["sub"]
-        except (jwt.DecodeError, KeyError) as err:
-            _LOGGER.exception("Failed to decode JWT: %s", err)
+        except (jwt.DecodeError, KeyError):
+            _LOGGER.exception("Failed to decode JWT")
             return self.async_abort(reason="invalid_token")
 
         await self.async_set_unique_id(unique_id)
@@ -131,3 +138,29 @@ class FlowHandler(
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlowHandler:
         """Options callback for Daikin Onecta."""
         return OptionsFlowHandler(config_entry)
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """Handle a discovered Daikin device via mDNS."""
+        _LOGGER.info(
+            "Daikin device discovered via mDNS: host=%s hostname=%s type=%s properties=%s",
+            discovery_info.host,
+            discovery_info.hostname,
+            discovery_info.type,
+            discovery_info.properties,
+        )
+
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+
+        hostname = discovery_info.hostname
+        if not hostname:
+            return self.async_abort(reason="unknown")
+
+        # Strip trailing dot and .local suffix for a clean display name.
+        # e.g. "altherma4-a1b2-c3d4.local." -> "altherma4-a1b2-c3d4"
+        hostname = hostname.rstrip(".")
+        hostname = hostname.removesuffix(".local")
+
+        self.context["title_placeholders"] = {"name": hostname}
+
+        return await self.async_step_user()

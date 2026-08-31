@@ -3,17 +3,18 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import CONF_STATE_CLASS
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorStateClass
-from homeassistant.const import CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+from homeassistant.components.update import UpdateDeviceClass
 from homeassistant.const import CONF_DEVICE_CLASS
 from homeassistant.const import CONF_ICON
 from homeassistant.const import CONF_UNIT_OF_MEASUREMENT
 from homeassistant.const import PERCENTAGE
 from homeassistant.const import REVOLUTIONS_PER_MINUTE
 from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT
+from homeassistant.const import UnitOfDensity
 from homeassistant.const import UnitOfEnergy
+from homeassistant.const import UnitOfPower
 from homeassistant.const import UnitOfTemperature
 from homeassistant.helpers.entity import EntityCategory
-
 
 DOMAIN = "daikin_onecta"
 
@@ -23,6 +24,8 @@ OAUTH2_TOKEN = "https://idp.onecta.daikineurope.com/v1/oidc/token"
 DAIKIN_API_URL = "https://api.onecta.daikineurope.com"
 
 SCHEDULE_OFF = "off"
+
+CONF_HOMEKIT_FAN_MODE_ALIASES = "homekit_fan_mode_aliases"
 
 FANMODE_FIXED = "fixed"
 
@@ -56,6 +59,15 @@ TRANSLATION_KEY = "TranslationKey"
 # - ENABLED_DEFAULT: Is the sensor enabled by default or not
 # - TRANSLATION_KEY: Translation key
 VALUE_SENSOR_MAPPING = {
+    "sgtin": {
+        CONF_DEVICE_CLASS: None,
+        CONF_STATE_CLASS: None,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:information-outline",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "sgtin",
+    },
     "schedule": {
         CONF_DEVICE_CLASS: None,
         CONF_STATE_CLASS: None,
@@ -446,7 +458,7 @@ VALUE_SENSOR_MAPPING = {
     "pm1Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM1,
         CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
-        CONF_UNIT_OF_MEASUREMENT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
@@ -455,7 +467,7 @@ VALUE_SENSOR_MAPPING = {
     "pm25Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM25,
         CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
-        CONF_UNIT_OF_MEASUREMENT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
@@ -464,7 +476,7 @@ VALUE_SENSOR_MAPPING = {
     "pm10Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM10,
         CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
-        CONF_UNIT_OF_MEASUREMENT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
@@ -622,5 +634,68 @@ VALUE_SENSOR_MAPPING = {
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
         TRANSLATION_KEY: "ratelimitremainingday",
+    },
+    "FirmwareUpdate": {
+        CONF_DEVICE_CLASS: UpdateDeviceClass.FIRMWARE,
+        CONF_STATE_CLASS: None,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:update",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "firmwareupdate",
+    },
+    "currentPowerConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.POWER,
+        CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfPower.WATT,
+        CONF_ICON: "mdi:lightning-bolt",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "currentpowerconsumption",
+    },
+    "currentHeatProduction": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.POWER,
+        CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfPower.WATT,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "currentthermaloutput",
+    },
+    "HeatingMonthlyThermalOutput": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingmonthlythermaloutput",
+    },
+    "HeatingYearlyThermalOutput": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingyearlythermaloutput",
+    },
+    "CoolingMonthlyThermalOutput": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingmonthlythermaloutput",
+    },
+    "CoolingYearlyThermalOutput": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingyearlythermaloutput",
     },
 }

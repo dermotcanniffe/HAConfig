@@ -1,34 +1,42 @@
 import logging
-from typing import Optional
-from typing import cast
+from typing import Optional, cast
 
-from homeassistant.components.light import ATTR_BRIGHTNESS
-from homeassistant.components.light import ATTR_COLOR_TEMP_KELVIN
-from homeassistant.components.light import ATTR_EFFECT
-from homeassistant.components.light import ATTR_HS_COLOR
-from homeassistant.components.light import ColorMode
-from homeassistant.components.light import LightEntity
-from homeassistant.components.light import LightEntityFeature
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    ATTR_COLOR_TEMP_KELVIN,
+    ATTR_EFFECT,
+    ATTR_HS_COLOR,
+    ColorMode,
+    LightEntity,
+    LightEntityFeature,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from plugp100.api.light_effect_preset import LightEffectPreset
+from plugp100.api.requests.set_device_info.set_light_color_info_params import (
+    LightColorDeviceInfoParams,
+)
+from plugp100.common.functional.tri import Try
+from plugp100.components.light import LightComponent
 from plugp100.components.light_effect import LightEffectComponent
 from plugp100.devices.bulb import TapoBulb
 
 from custom_components.tapo.const import DOMAIN
 from custom_components.tapo.coordinators import HassTapoDeviceData, TapoDataCoordinator
 from custom_components.tapo.entity import CoordinatedTapoEntity
-from custom_components.tapo.helpers import hass_to_tapo_brightness
-from custom_components.tapo.helpers import hass_to_tapo_color_temperature
-from custom_components.tapo.helpers import tapo_to_hass_brightness
-from custom_components.tapo.helpers import tapo_to_hass_color_temperature
+from custom_components.tapo.helpers import (
+    hass_to_tapo_brightness,
+    hass_to_tapo_color_temperature,
+    tapo_to_hass_brightness,
+    tapo_to_hass_color_temperature,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-        hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ):
     data = cast(HassTapoDeviceData, hass.data[DOMAIN][entry.entry_id])
     if isinstance(data.device, TapoBulb):
@@ -57,9 +65,15 @@ class TapoLightEntity(CoordinatedTapoEntity, LightEntity):
     def color_mode(self) -> ColorMode | str | None:
         if ColorMode.HS in self.supported_color_modes and self.hs_color is not None:
             return ColorMode.HS
-        elif ColorMode.COLOR_TEMP in self.supported_color_modes and self.color_temp is not None:
+        elif (
+            ColorMode.COLOR_TEMP in self.supported_color_modes
+            and self.color_temp_kelvin is not None
+        ):
             return ColorMode.COLOR_TEMP
-        elif ColorMode.BRIGHTNESS in self.supported_color_modes and self.brightness is not None:
+        elif (
+            ColorMode.BRIGHTNESS in self.supported_color_modes
+            and self.brightness is not None
+        ):
             return ColorMode.BRIGHTNESS
         elif ColorMode.ONOFF in self.supported_color_modes:
             return ColorMode.ONOFF
@@ -82,15 +96,16 @@ class TapoLightEntity(CoordinatedTapoEntity, LightEntity):
         (hue, saturation) = (self.device.hs.hue, self.device.hs.saturation)
         color_temp = self.device.color_temp
         if (
-                color_temp is None or color_temp <= 0
+            color_temp is None or color_temp <= 0
         ):  # returns None if color_temp is not set
             if hue is not None and saturation is not None:
                 return hue, saturation
 
     @property
-    def color_temp(self):
+    def color_temp_kelvin(self):
         return tapo_to_hass_color_temperature(
-            self.device.color_temp, (self.min_color_temp_kelvin, self.max_color_temp_kelvin)
+            self.device.color_temp,
+            (self.min_color_temp_kelvin, self.max_color_temp_kelvin),
         )
 
     @property
@@ -137,13 +152,13 @@ class TapoLightEntity(CoordinatedTapoEntity, LightEntity):
         await self.coordinator.async_request_refresh()
 
     async def _set_state(
-            self,
-            on: bool,
-            color_temp=None,
-            hue_saturation=None,
-            brightness=None,
-            effect: str = None,
-            current_effect: str = None,
+        self,
+        on: bool,
+        color_temp=None,
+        hue_saturation=None,
+        brightness=None,
+        effect: str = None,
+        current_effect: str = None,
     ):
         if not on:
             return (await self.device.turn_off()).get_or_raise()
@@ -158,17 +173,13 @@ class TapoLightEntity(CoordinatedTapoEntity, LightEntity):
         elif hue_saturation is not None and ColorMode.HS in self.supported_color_modes:
             hue = int(hue_saturation[0])
             saturation = int(hue_saturation[1])
-            (
-                await self.device.set_hue_saturation(hue, saturation)
-            ).get_or_raise()
+            (await self._set_hue_saturation(hue, saturation)).get_or_raise()
         elif (
-                color_temp is not None
-                and ColorMode.COLOR_TEMP in self.supported_color_modes
+            color_temp is not None
+            and ColorMode.COLOR_TEMP in self.supported_color_modes
         ):
             color_temp = int(color_temp)
-            (
-                await self.device.set_color_temperature(color_temp)
-            ).get_or_raise()
+            (await self.device.set_color_temperature(color_temp)).get_or_raise()
 
         # handle all brightness user use cases
         # 1. brightness set with effect (scene)
@@ -192,9 +203,20 @@ class TapoLightEntity(CoordinatedTapoEntity, LightEntity):
                 )
             ).get_or_raise()
         else:
-            (
-                await self.device.set_brightness(new_brightness)
-            ).get_or_raise()
+            (await self.device.set_brightness(new_brightness)).get_or_raise()
+
+    async def _set_hue_saturation(self, hue: int, saturation: int) -> Try[bool]:
+        """Set HS while avoiding invalid payloads for near-white selections."""
+        if saturation > 0:
+            return await self.device.set_hue_saturation(hue, saturation)
+
+        light_component = self.device.get_component(LightComponent)
+        if light_component is None:
+            return await self.device.set_hue_saturation(hue, saturation)
+
+        return await light_component._client.set_device_info(
+            LightColorDeviceInfoParams(hue=hue, saturation=saturation)
+        )
 
 
 # follows https://developers.home-assistant.io/docs/core/entity/light/#color-modes

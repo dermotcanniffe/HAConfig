@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Integration config",
+        "data": {
+          "host": "Host",
+          "username": "Login",
+          "password": "Password",
+          "scan_interval": "Scan interval for updates in seconds",
+          "verify_ssl": "Verify ssl for https connection",
+          "support_vpn": "Include support for VPN server and client",
+          "support_tracker": "Include device trackers (disable for non-access-point routers to avoid duplicates)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Edit parameters for the router.",
+        "data": {
+          "host": "Host",
+          "username": "Login",
+          "password": "Password",
+          "scan_interval": "Scan interval for updates in seconds",
+          "verify_ssl": "Verify ssl for https connection",
+          "support_vpn": "Include support for VPN server and client",
+          "support_tracker": "Include device trackers (disable for non-access-point routers to avoid duplicates)"
+        }
+      }
+    }
+  },
+  "services": {
+    "send_sms": {
+      "name": "Send SMS",
+      "description": "Send SMS",
+      "fields": {
+        "number": {
+          "name": "Phone",
+          "description": "Phone number"
+        },
+        "text": {
+          "name": "Message",
+          "description": "Text"
+        },
+        "device": {
+          "name": "Router",
+          "description": "Select the TP-Link router to send sms"
+        }
+      }
+    }
+  }
+}

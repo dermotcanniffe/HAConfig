@@ -1,6 +1,4 @@
 """Component to interface with binary sensors."""
-from __future__ import annotations
-
 import logging
 
 from homeassistant.components.button import ButtonEntity
@@ -12,7 +10,6 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import OnectaRuntimeData
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +24,7 @@ async def async_setup_entry(
     onecta_data: OnectaRuntimeData = config_entry.runtime_data
     coordinator = onecta_data.coordinator
 
-    for dev_id, device in onecta_data.devices.items():
+    for device in onecta_data.devices.values():
         entities.append(DaikinRefreshButton(device, config_entry, coordinator))
 
     if entities:

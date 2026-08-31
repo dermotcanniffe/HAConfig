@@ -1,0 +1,324 @@
+import { describe, it, expect } from 'vitest';
+import jsyaml from 'js-yaml';
+import { processPackageContent, sanitizePackageContent } from '../../js/io/adapters/package_processor.js';
+import geekMagicMiniYaml from '../../hardware/geekmagic-mini-esp8266.yaml?raw';
+import guitionP4LargeYaml from '../../hardware/guition-esp32-p4-jc8012p4a1c.yaml?raw';
+import m5stackTab5Yaml from '../../hardware/m5stack-tab5.yaml?raw';
+import waveshareEpaperYaml from '../../hardware/waveshare-esp32-universal-epaper-7.5v2.yaml?raw';
+
+describe('Package Processor', () => {
+
+  describe('sanitizePackageContent', () => {
+    it('comments out system-level block keys', () => {
+      const yaml = `
+esphome:
+  name: test
+  
+wifi:
+  ssid: "network"
+
+font:
+  - file: "font.ttf"
+            `.trim();
+
+      const sanitized = sanitizePackageContent(yaml);
+
+      expect(sanitized).toContain('# esphome: # (Auto-commented)');
+      expect(sanitized).toContain('# wifi: # (Auto-commented)');
+
+      expect(sanitized).toContain('#   name: test');
+      expect(sanitized).toContain('#   ssid: "network"');
+
+      // Should NOT comment non-system keys that are at root
+      expect(sanitized).toContain('font:');
+      expect(sanitized).toContain('  - file: "font.ttf"');
+    });
+
+    it('handles deep_sleep correctly', () => {
+      const yaml = "deep_sleep:\n  run_duration: 10s";
+      const sanitized = sanitizePackageContent(yaml);
+      expect(sanitized).toContain('# deep_sleep: # (Auto-commented)');
+      expect(sanitized).toContain('#   run_duration: 10s');
+    });
+
+    it('comments RP2 platform blocks in imported hardware recipes', () => {
+      const sanitized = sanitizePackageContent('rp2:\n  board: rpipico2w');
+      expect(sanitized).toContain('# rp2: # (Auto-commented)');
+      expect(sanitized).toContain('#   board: rpipico2w');
+    });
+  });
+
+  describe('processPackageContent', () => {
+    const mockProfile = { isPackageBased: true };
+    const mockLayout = { orientation: 'landscape', width: 800, height: 480 };
+    const mockLines = ["display:", "  - platform: whatever", "font:", "  - file: x"];
+
+    it('injects lambda content at the placeholder preserving indentation', () => {
+      const packageYaml = `
+display:
+  - platform: x
+    # __LAMBDA_PLACEHOLDER__
+    id: disp
+            `.trim();
+
+      const lambdaLines = ["it.print(0, 0, id(font1), \"Hello\");"];
+
+      const result = processPackageContent(packageYaml, lambdaLines, [], mockProfile, mockLayout, false, mockLines);
+
+      // Should inject the lambda header
+      expect(result).toContain('    lambda: |-');
+      // Should preserve the 4-space indent of the placeholder plus 2 spaces for the lambda content
+      expect(result).toContain('      it.print(0, 0, id(font1), "Hello");');
+    });
+
+    it('skips lambda injection if isLvgl is true', () => {
+      const packageYaml = `
+display:
+  - platform: x
+    # __LAMBDA_PLACEHOLDER__
+    id: disp
+            `.trim();
+      const lambdaLines = ["it.print(0, 0, id(font1), \"Hello\");"];
+
+      // isLvgl = true
+      const result = processPackageContent(packageYaml, lambdaLines, [], mockProfile, mockLayout, true, mockLines);
+
+      // Should NOT inject lambda
+      expect(result).not.toContain('lambda: |-');
+      expect(result).not.toContain('it.print');
+    });
+
+    it('removes a template lambda header when LVGL consumes its placeholder', () => {
+      const packageYaml = `
+display:
+  - platform: mipi_spi
+    lambda: |-
+      # __LAMBDA_PLACEHOLDER__
+    id: my_display
+            `.trim();
+
+      const result = processPackageContent(packageYaml, [], [], mockProfile, mockLayout, true, mockLines);
+
+      expect(result).not.toContain('lambda: |-');
+      expect(result).toContain('id: my_display');
+    });
+
+    it('injects touch sensors at the placeholder', () => {
+      const packageYaml = `
+binary_sensor:
+  # __TOUCH_SENSORS_PLACEHOLDER__
+  - platform: gpio
+            `.trim();
+
+      const touchSensors = [
+        "  - platform: touchscreen",
+        "    id: btn1",
+        "    x_min: 0"
+      ];
+
+      const result = processPackageContent(packageYaml, [], touchSensors, mockProfile, mockLayout, false, mockLines);
+
+      expect(result).toContain('  - platform: touchscreen');
+      expect(result).toContain('    id: btn1');
+    });
+
+    it('removes touch placeholder if no touch sensors provided', () => {
+      const packageYaml = `
+binary_sensor:
+  # __TOUCH_SENSORS_PLACEHOLDER__
+  - platform: gpio
+            `.trim();
+
+      const result = processPackageContent(packageYaml, [], [], mockProfile, mockLayout, false, mockLines);
+      expect(result).not.toContain('__TOUCH_SENSORS_PLACEHOLDER__');
+    });
+
+    it('preserves the generated Device Settings diagnostics for package exports', () => {
+      const packageYaml = `
+# ============================================================================
+# ESPHome YAML - Generated by ESPHome Designer
+# ============================================================================
+display:
+  - platform: x
+    id: disp
+            `.trim();
+      const generatedLines = [
+        '# ============================================================================',
+        '# ESPHome YAML - Generated by ESPHome Designer',
+        '# ============================================================================',
+        '#',
+        '# ====================================',
+        '# Device Settings',
+        '# ====================================',
+        '# Orientation: portrait',
+        '# Layout Signature: abc123',
+        '# Layout Summary: mode=direct pages=1 widgets=0',
+        '# Boot Log Hint: Compare the runtime build signature with this header to spot OTA rollbacks.',
+        '# ====================================',
+        '',
+        'font:',
+        '  - file: x'
+      ];
+
+      const result = processPackageContent(packageYaml, [], [], mockProfile, mockLayout, false, generatedLines);
+
+      expect(result).toContain('# Device Settings');
+      expect(result).toContain('# Orientation: portrait');
+      expect(result).toContain('# Layout Signature: abc123');
+      expect(result).toContain('# Boot Log Hint: Compare the runtime build signature with this header to spot OTA rollbacks.');
+    });
+
+    it('inserts missing rotation inside display instead of the first platform block', () => {
+      const packageYaml = `
+output:
+  - platform: ledc
+    pin: GPIO38
+    id: gpio_backlight_pwm
+    frequency: 100Hz
+
+display:
+  - platform: st7701s
+    id: my_display
+    update_interval: never
+            `.trim();
+
+      const result = processPackageContent(
+        packageYaml,
+        [],
+        [],
+        { isPackageBased: true, resolution: { width: 480, height: 480 } },
+        { orientation: 'portrait' },
+        false,
+        []
+      );
+
+      expect(result).toContain([
+        'display:',
+        '  - platform: st7701s',
+        '    id: my_display',
+        '    update_interval: never',
+        '    rotation: 90'
+      ].join('\n'));
+      expect(result).toContain([
+        'output:',
+        '  - platform: ledc',
+        '    pin: GPIO38',
+        '    id: gpio_backlight_pwm',
+        '    frequency: 100Hz'
+      ].join('\n'));
+      expect(result).not.toContain('frequency: 100Hz\n    rotation: 90');
+    });
+  });
+
+  // Fix #485: rotation used to be inserted at the first blank line of the
+  // injected `lambda: |-` body, which terminates the block scalar early and
+  // leaves the rest of the drawing code as invalid top-level YAML.
+  describe('rotation placement in real hardware recipes (#485)', () => {
+    // Mirrors the generated lambda shape: colour constants, a blank line, then helpers.
+    const lambdaLines = [
+      'const auto COLOR_WHITE = Color(255, 255, 255);',
+      'const auto COLOR_BLACK = Color(0, 0, 0);',
+      'auto color_off = COLOR_WHITE;',
+      'auto color_on = COLOR_BLACK;',
+      '',
+      '// Helper to print text with word-wrap at widget boundary',
+      'auto print_wrapped_text = [&](int x, int y) { };',
+      '',
+      'it.print(0, 0, id(font1), "Hello");'
+    ];
+
+    // The exported snippet auto-comments system blocks; drop comments so js-yaml
+    // can parse what remains as a plain document.
+    const stripComments = (yaml) => yaml.split('\n').filter((l) => !l.trimStart().startsWith('#')).join('\n');
+
+    const recipes = [
+      ['GeekMagic Mini (no rotation in recipe)', geekMagicMiniYaml, { width: 240, height: 240 }, [0, 90, 180, 270]],
+      ['Guition P4 JC8012P4A1C (rotation: 90 in recipe)', guitionP4LargeYaml, { width: 1280, height: 800 }, [90, 180, 270, 0]],
+      ['Waveshare e-paper 7.5 (rotation: 0° in recipe)', waveshareEpaperYaml, { width: 800, height: 480 }, ['0°', '90°', '180°', '270°']]
+    ];
+
+    const orientations = ['landscape', 'portrait', 'landscape_inverted', 'portrait_inverted'];
+
+    for (const [label, recipe, resolution, expectedRotations] of recipes) {
+      orientations.forEach((orientation, index) => {
+        it(`keeps the lambda intact and rotation a display key for ${label} in ${orientation}`, () => {
+          const result = processPackageContent(
+            recipe,
+            lambdaLines,
+            [],
+            { isPackageBased: true, resolution },
+            { orientation },
+            false,
+            []
+          );
+
+          const doc = jsyaml.load(stripComments(result));
+          const display = doc.display[0];
+          const keys = Object.keys(display);
+
+          // rotation must be a mapping key, not text swallowed by the lambda
+          expect(keys).toContain('rotation');
+          expect(display.rotation).toBe(expectedRotations[index]);
+          expect(String(display.lambda)).not.toContain('rotation:');
+
+          // and it must be emitted before the block scalar starts
+          expect(keys.indexOf('rotation')).toBeLessThan(keys.indexOf('lambda'));
+
+          // the whole lambda body survives as one unbroken block scalar
+          expect(String(display.lambda)).toContain('auto color_on = COLOR_BLACK;');
+          expect(String(display.lambda)).toContain('// Helper to print text with word-wrap at widget boundary');
+          expect(String(display.lambda)).toContain('it.print(0, 0, id(font1), "Hello");');
+
+          // recipes that already declare rotation must not gain a second one
+          expect(result.match(/^\s*rotation:/gm)).toHaveLength(1);
+        });
+      });
+    }
+  });
+
+  // Issue #490: ESPHome 2026.4 rejects `rotation:` in the display section when
+  // LVGL is enabled. In LVGL mode the merger must not inject it; orientation
+  // moves to the lvgl component config instead.
+  describe('LVGL-safe rotation handling (#490)', () => {
+    const stripComments = (yaml) => yaml.split('\n').filter((l) => !l.trimStart().startsWith('#')).join('\n');
+
+    it('leaves the M5Stack Tab5 display block free of a rotation key in LVGL mode', () => {
+      for (const orientation of ['landscape', 'portrait', 'landscape_inverted', 'portrait_inverted']) {
+        const result = processPackageContent(
+          m5stackTab5Yaml,
+          ['it.print(0, 0, id(font1), "Hello");'],
+          [],
+          { id: 'm5stack_tab5', isPackageBased: true, displayPlatform: 'mipi_dsi', resolution: { width: 1280, height: 720 } },
+          { orientation },
+          true,
+          []
+        );
+
+        const doc = jsyaml.load(stripComments(result));
+        expect(doc.display[0].rotation).toBeUndefined();
+        expect(result).not.toMatch(/^\s*rotation:/m);
+      }
+    });
+
+    it('keeps injecting display rotation for direct-mode rendering', () => {
+      const result = processPackageContent(
+        geekMagicMiniYaml,
+        ['it.print(0, 0, id(font1), "Hello");'],
+        [],
+        { isPackageBased: true, resolution: { width: 240, height: 240 } },
+        { orientation: 'portrait' },
+        false,
+        []
+      );
+      const doc = jsyaml.load(stripComments(result));
+      expect(doc.display[0].rotation).toBe(90);
+    });
+
+    it('ships the Tab5 esp32_hosted active_high flag and a display_backlight light (#490)', () => {
+      expect(m5stackTab5Yaml).toMatch(/esp32_hosted:\n(?: {2}.*\n)* {2}active_high: true/);
+      expect(m5stackTab5Yaml).toContain('id: backlight_pwm');
+      expect(m5stackTab5Yaml).toMatch(/light:\n(?: {2}.*\n)* {4}id: display_backlight/);
+    });
+  });
+
+});

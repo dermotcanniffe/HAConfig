@@ -4,7 +4,7 @@ The real implementations are injected by pyscript at runtime; only signatures
 and documentation live here.
 """
 
-# pylint: disable=unnecessary-ellipsis, invalid-name, redefined-outer-name
+# pylint: disable=unnecessary-ellipsis, invalid-name, redefined-outer-name, dangerous-default-value
 from __future__ import annotations
 
 from asyncio import Task
@@ -15,6 +15,8 @@ from typing import Any, Literal
 from homeassistant.core import HomeAssistant
 
 hass: HomeAssistant
+
+WebhookMethod = Literal["GET", "HEAD", "POST", "PUT"]
 
 
 def service(
@@ -30,7 +32,7 @@ def service(
 
 
 def state_trigger(
-    *str_expr: str,
+    *str_expr: str | list[str] | set[str],
     state_hold: int | float | None = None,
     state_hold_false: int | float | None = None,
     state_check_now: bool = False,
@@ -61,12 +63,12 @@ def state_active(str_expr: str) -> Callable[..., Any]:
     ...
 
 
-def time_trigger(*time_spec: str | None, **kwargs) -> Callable[..., Any]:
+def time_trigger(*time_spec: str | None, kwargs: dict | None = None) -> Callable[..., Any]:
     """Schedule the function using time specifications.
 
     Args:
-        *time_spec: Time expressions such as ``startup``, ``shutdown``, ``once()``, ``period()``, or ``cron()``.
-        **kwargs: Optional trigger keywords merged into each invocation.
+        time_spec: Time expressions such as ``startup``, ``shutdown``, ``once()``, ``period()``, or ``cron()``.
+        kwargs: Optional trigger keywords merged into each invocation.
     """
     ...
 
@@ -81,7 +83,9 @@ def task_unique(name: str, kill_me: bool = False) -> Callable[..., Any]:
     ...
 
 
-def event_trigger(*event_type: str, str_expr: str = None, **kwargs) -> Callable[..., Any]:
+def event_trigger(
+    *event_type: str, str_expr: str | None = None, kwargs: dict | None = None
+) -> Callable[..., Any]:
     """Trigger when a Home Assistant event matches the criteria.
 
     Args:
@@ -94,18 +98,23 @@ def event_trigger(*event_type: str, str_expr: str = None, **kwargs) -> Callable[
     ...
 
 
-def time_active(*time_spec: str, hold_off: int | float | None = None) -> Callable[..., Any]:
+def time_active(
+    *time_spec: str, hold_off: int | float | None = None, hold_off_send_last: bool = False
+) -> Callable[..., Any]:
     """Restrict trigger execution to specific time windows.
 
     Args:
         time_spec: ``range()`` or ``cron()`` expressions (optionally prefixed with ``not``) checked on each trigger.
         hold_off: Seconds to suppress further triggers after a successful run.
+        hold_off_send_last: Run once with the latest suppressed trigger data when ``hold_off`` ends.
 
     """
     ...
 
 
-def mqtt_trigger(topic: str, str_expr: str | None = None, encoding: str = "utf-8", **kwargs) -> Callable[..., Any]:
+def mqtt_trigger(
+    topic: str, str_expr: str | None = None, encoding: str = "utf-8", kwargs: dict | None = None
+) -> Callable[..., Any]:
     """Trigger when a subscribed MQTT message matches the specification.
 
     Args:
@@ -113,6 +122,67 @@ def mqtt_trigger(topic: str, str_expr: str | None = None, encoding: str = "utf-8
         str_expr: Optional expression evaluated against ``payload``, ``payload_obj``, ``retain``, ``topic``, and ``qos``.
         encoding: Character encoding for MQTT payload decoding; defaults to ``"utf-8"``.
         kwargs: Extra keyword arguments merged into each invocation.
+    """
+    ...
+
+
+def webhook_trigger(
+    webhook_id: str,
+    str_expr: str | None = None,
+    local_only: bool = True,
+    methods: set[WebhookMethod] | list[WebhookMethod] = {"POST", "PUT"},
+    kwargs: dict | None = None,
+) -> Callable[..., Any]:
+    """Trigger when a request is made to a webhook endpoint.
+
+    Args:
+        webhook_id: Webhook id to listen to.
+        str_expr: Optional expression evaluated against ``trigger_type``, ``webhook_id``, ``request``, and ``payload``.
+        local_only: If False, allow requests from anywhere on the internet.
+        methods: HTTP methods to allow.
+        kwargs: Extra keyword arguments merged into each invocation.
+
+    Trigger kwargs include ``trigger_type="webhook"``, ``webhook_id``, the parsed payload fields, and ``request`` (the underlying ``aiohttp.web.Request``).
+    """
+    ...
+
+
+def webhook_handler(
+    webhook_id: str,
+    str_expr: str | None = None,
+    local_only: bool = True,
+    methods: set[WebhookMethod] | list[WebhookMethod] = {"POST", "PUT"},
+    timeout: int | float = 10.0,
+    kwargs: dict | None = None,
+) -> Callable[..., Any]:
+    """Handle a webhook request and return the HTTP response from the function.
+
+    Like ``@webhook_trigger`` but the decorated function's return value becomes the HTTP
+    response. Only one handler can be registered per ``webhook_id``.
+
+    Args:
+        webhook_id: Webhook id to listen to; must not be registered by another handler or trigger.
+        str_expr: Optional expression evaluated against ``trigger_type``, ``webhook_id``, ``request``, and ``payload``.
+        local_only: If False, allow requests from anywhere on the internet.
+        methods: HTTP methods to allow.
+        timeout: Seconds to wait for the function before returning ``504 Gateway Timeout``.
+        kwargs: Extra keyword arguments merged into each invocation.
+
+    Trigger kwargs are identical to ``@webhook_trigger``.
+
+    Return value mapping (function -> HTTP response):
+        - ``None`` or no return -> ``200 OK``
+        - ``str`` -> ``200`` with text body
+        - ``bytes`` -> ``200`` with raw body
+        - ``dict`` / ``list`` -> ``200`` with JSON body
+        - ``(status, body)`` tuple -> ``status`` from tuple, ``body`` mapped recursively
+        - ``aiohttp.web.Response`` -> returned as-is
+        - any other type -> ``500`` with a warning (use a tuple or a Response instead)
+
+    A malformed request body yields ``400 Bad Request``, a falsy ``str_expr`` guard
+    yields ``403 Forbidden``, an uncaught exception in the function yields
+    ``500 Internal Server Error``, and a call canceled by another decorator's guard
+    (e.g. ``@task_unique`` or ``@state_active``) yields ``503 Service Unavailable``.
     """
     ...
 
@@ -414,6 +484,7 @@ class task:
 
     @staticmethod
     def wait_until(
+        *,
         state_trigger: str | list[str] | None = None,
         time_trigger: str | list[str] | None = None,
         event_trigger: str | list[str] | None = None,
@@ -421,7 +492,7 @@ class task:
         mqtt_trigger_encoding: str | None = None,
         webhook_trigger: str | list[str] | None = None,
         webhook_local_only: bool = True,
-        webhook_methods: list[str] = ("POST", "PUT"),
+        webhook_methods: list[WebhookMethod] = ["POST", "PUT"],
         timeout: int | float | None = None,
         state_check_now: bool = True,
         state_hold: int | float | None = None,
