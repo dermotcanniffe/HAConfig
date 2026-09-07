@@ -669,6 +669,28 @@ SENSOR_ENTITIES_GRID_AS_OBJECT = [
         device_class=SensorDeviceClass.CURRENT,
         entity_registry_enabled_default=False
     ),
+    ExtSensorEntityDescription(
+        tag=Tag.GRID,
+        key=Tag.GRIDENERGY.json_key,
+        json_idx=[GRID_CONTENT.ENERGY.value],
+        icon="mdi:transmission-tower-export",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        device_class=SensorDeviceClass.ENERGY,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.GRID,
+        key=Tag.GRIDRETURNENERGY.json_key,
+        json_idx=[GRID_CONTENT.RETURNENERGY.value],
+        icon="mdi:transmission-tower-import",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        device_class=SensorDeviceClass.ENERGY,
+        entity_registry_enabled_default=False
+    ),
 ]
 SENSOR_ENTITIES_BATTERY_AS_PREFIX = [
     ExtSensorEntityDescription(
@@ -897,6 +919,117 @@ SENSOR_ENTITIES_BATTERY_AS_OBJECT = [
         device_class=SensorDeviceClass.ENERGY,
         suggested_display_precision=1
     ),
+
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERYENERGY_AS_OBJ,
+        key=Tag.BATTERYENERGY_AS_OBJ.entity_key,
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_0_energy",
+        json_idx=[0, BATTERY_CONTENT.ENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_1_energy",
+        json_idx=[1, BATTERY_CONTENT.ENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_2_energy",
+        json_idx=[2, BATTERY_CONTENT.ENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_3_energy",
+        json_idx=[3, BATTERY_CONTENT.ENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERYRETURNENERGY_AS_OBJ,
+        key=Tag.BATTERYRETURNENERGY_AS_OBJ.entity_key,
+        icon="mdi:battery-arrow-up",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_0_returnenergy",
+        json_idx=[0, BATTERY_CONTENT.RETURNENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_1_returnenergy",
+        json_idx=[1, BATTERY_CONTENT.RETURNENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_2_returnenergy",
+        json_idx=[2, BATTERY_CONTENT.RETURNENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+    ExtSensorEntityDescription(
+        tag=Tag.BATTERY_AS_OBJ,
+        key="battery_3_returnenergy",
+        json_idx=[3, BATTERY_CONTENT.RETURNENERGY.value],
+        icon="mdi:battery-arrow-down",
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False
+    ),
+
 ]
 SENSOR_ENTITIES = [
     ExtSensorEntityDescription(
