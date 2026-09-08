@@ -27,8 +27,28 @@ more battle-tested of the two.
 
 1. HACS → Integrations → search "LCARdS" → Download
 2. Restart Home Assistant
-3. Settings → Integrations → Add Integration → LCARdS
-No external dependencies. (Status: user has installed it side-by-side.)
+3. **Settings → Devices & Services → Add Integration → LCARdS**  ← REQUIRED
+
+### Install gotcha (cost us several rounds — do not skip step 3)
+
+LCARdS is a full **integration** (`config_flow: true`, `single_config_entry: true`),
+NOT a plain frontend plugin like cb-lcars or a theme like ha-lcars. Consequences:
+
+- It does NOT serve its card JS from `www/community/`. The bundle lives at
+  `custom_components/lcards/lcards.js` and is served by the integration's
+  `frontend.py` — which only runs once the config entry is ADDED and set up.
+- Downloading in HACS + restarting is only HALF the install. Until you complete
+  step 3, EVERY `lcards-*` card errors with "Custom element not found:
+  lcards-button" (etc.), even though the files are on disk.
+- Unlike cb-lcars/ha-lcars, LCARdS DOES appear under Settings → Devices &
+  Services once added, and registers a sidebar panel.
+- Card type names have NO `-card` suffix: `custom:lcards-button`,
+  `custom:lcards-msd`, `custom:lcards-data-grid` (cb-lcars used `-card`; LCARdS
+  dropped it).
+
+Symptom → fix: "Custom element not found: lcards-*" for ALL cards →
+Add Integration (step 3) → hard-refresh browser (Ctrl+Shift+R).
+(Status: installed and config entry added — cards now resolve.)
 
 ## Cards of interest for this setup
 
