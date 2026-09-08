@@ -1,0 +1,150 @@
+# =============================================================================
+# Battery Status Panel — CB-LCARS
+# =============================================================================
+# Two versions. Paste ONE into a Manual card on the MSD dashboard.
+#
+# Colour bands (applies to both): green >= 50, amber 20-49, red < 20.
+# Header readout uses your existing summary sensors:
+#   sensor.batteries_to_replace  (count + shopping_list attribute)
+#   sensor.total_battery_devices (total)
+# NOTE: sensor.batteries_to_replace has the string-vs-numeric comparison bug
+#       documented in docs/battery-threshold-bug.md — the COUNT under-reports
+#       low batteries until that's fixed. The auto-entities list (Option B)
+#       sorts by real numeric state, so the list itself is always correct.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# OPTION A — Pure CB-LCARS, NO extra HACS install.
+# Curated list: one multimeter gauge per battery you care about.
+# Duplicate a gauge block and change `entity` to add more. Matches the
+# Environment column style from the Ready Room panel.
+# -----------------------------------------------------------------------------
+type: vertical-stack
+cards:
+  - type: custom:cb-lcars-elbow-card
+    cblcars_card_type: cb-lcars-header
+    enable_resize_observer: true
+    variables:
+      label: Battery Status
+      card:
+        color:
+          default: var(--lcars-apricot)
+        border:
+          left:
+            size: 23
+          top:
+            size: 13
+    show_label: true
+  # ---- one gauge per battery (copy/paste + change entity + label) ----
+  - type: custom:cb-lcars-multimeter-card
+    enable_resize_observer: true
+    variables:
+      _mode: gauge
+      _vertical: false
+      _max: 100
+      _show_unit_of_measurement: true
+      _unit_of_measurement: "%"
+      gauge:
+        range:
+          enabled: true
+          ranges:
+            - from: 0
+              to: 20
+              color: var(--lcars-alert-red)
+            - from: 20
+              to: 50
+              color: var(--lcars-butterscotch)
+            - from: 50
+              to: 100
+              color: var(--picard-light-green)
+      card:
+        border:
+          left:
+            size: 0
+          top:
+            size: 0
+          right:
+            size: 23
+        color:
+          default: var(--lcars-butter)
+      slider:
+        thumb:
+          enabled: false
+      label: Kitchen Motion
+      entity: sensor.kitchen_motion_battery   # <-- change per battery
+    tap_action:
+      action: more-info
+    show_label: true
+  # ...duplicate the multimeter block above for each battery...
+
+
+# -----------------------------------------------------------------------------
+# OPTION B — auto-entities (RECOMMENDED). Requires HACS card "Auto-entities"
+# (thomasloven). Renders EVERY battery sensor, worst-first, auto-updating.
+# Scrolls inside a fixed LCARS frame so it works on small MSD screens.
+# -----------------------------------------------------------------------------
+type: custom:auto-entities
+card:
+  type: entities
+  title: BATTERY STATUS
+  state_color: true
+  # card-mod is already loaded in your config; this gives the fixed
+  # scrollable region + LCARS framing on small screens.
+  card_mod:
+    style: |
+      ha-card {
+        max-height: 320px;
+        overflow-y: auto;
+        background: black;
+        border: 2px solid var(--lcars-apricot, #f90);
+        border-radius: 0;
+      }
+      /* colour each row's state text by charge level */
+      .card-content .text-content.value {
+        font-weight: 600;
+      }
+filter:
+  include:
+    - entity_id: sensor.*
+      attributes:
+        device_class: battery
+      # optional: only show battery % sensors, not battery-state strings
+      # (device_class battery covers both; numeric sort handles it)
+  exclude:
+    # keep dead/unknown OUT of the list; they're counted in the header sensor
+    - state: unavailable
+    - state: unknown
+    # ---- rechargeables / storage systems: NOT replaceable batteries ----
+    # Keep this list in sync with the `ignore` attribute on
+    # sensor.battery_type_inventory (single source of truth in configuration.yaml).
+    # auto-entities can't read a sensor attribute directly, so mirror it here.
+    - entity_id: sensor.sigen_energy_storage_system_soc
+    - entity_id: sensor.sigen_ess_battery_soc
+    - entity_id: sensor.ticwatch_pro_1209_battery_level
+    - entity_id: sensor.tara_s_phone_battery_level
+sort:
+  method: state
+  numeric: true          # worst (lowest %) floats to the top
+card_param: entities
+
+
+# -----------------------------------------------------------------------------
+# OPTIONAL header for Option B — a CB-LCARS readout above the list showing
+# "N to replace" from your summary sensor. Wrap Option B + this in a
+# vertical-stack.
+# -----------------------------------------------------------------------------
+# type: custom:cb-lcars-button-card
+# cblcars_card_type: cb-lcars-button-bullet
+# entity: sensor.batteries_to_replace
+# show_label: true
+# show_state: true
+# variables:
+#   label: To Replace
+#   card:
+#     min_height: '60'
+#     color:
+#       background:
+#         default: var(--lcars-butter)
+#         non_zero: var(--lcars-alert-red)
+#         zero: var(--picard-light-green)

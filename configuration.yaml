@@ -176,6 +176,18 @@ template:
               "sensor.bedroom_temp_battery": "AAA"
             } %}
             {{ data | to_json }}
+          # Single source of truth for battery entities to EXCLUDE from the
+          # "Batteries to Replace" shopping list. These are rechargeables /
+          # storage systems that get charged, not replaced (SigenStor, phones,
+          # watches, tablets, etc.). Add entity_ids here as you discover them.
+          ignore: >
+            {% set data = [
+              "sensor.sigen_energy_storage_system_soc",
+              "sensor.sigen_ess_battery_soc",
+              "sensor.ticwatch_pro_1209_battery_level",
+              "sensor.tara_s_phone_battery_level"
+            ] %}
+            {{ data | to_json }}
 
   - sensor:
       - name: "Total Battery Devices"
@@ -195,26 +207,45 @@ template:
         unique_id: batteries_to_replace
         state: >
           {% set low_threshold = 20 %}
-          {% set entities = states.sensor 
-            | selectattr('attributes.device_id', 'defined')
+          {% set ignore = state_attr('sensor.battery_type_inventory', 'ignore')
+            | from_json if state_attr('sensor.battery_type_inventory', 'ignore') else [] %}
+          {% set battery_sensors = states.sensor
+            | selectattr('attributes.device_class', 'defined')
             | selectattr('attributes.device_class', 'eq', 'battery')
-            | select('test', 'any', [
-                ('state', 'in', ['unavailable', 'unknown']),
-                ('state', 'lt', low_threshold | string)
-              ])
-            | map(attribute='entity_id') | list %}
-          {{ entities | count }}
+            | rejectattr('entity_id', 'in', ignore)
+            | list %}
+          {% set ns = namespace(flagged=[]) %}
+          {% for s in battery_sensors %}
+            {% if s.state in ['unavailable', 'unknown'] %}
+              {# Unavailable / unknown always count as needing attention #}
+              {% set ns.flagged = ns.flagged + [s.entity_id] %}
+            {% elif s.state | float(100) < low_threshold %}
+              {# Numeric comparison; float(100) so unparseable states aren't flagged #}
+              {% set ns.flagged = ns.flagged + [s.entity_id] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.flagged | unique | list | count }}
         attributes:
           shopping_list: >
-            {% set inventory = state_attr('sensor.battery_type_inventory', 'lookup') %}
+            {% set inventory = state_attr('sensor.battery_type_inventory', 'lookup')
+              | from_json if state_attr('sensor.battery_type_inventory', 'lookup') else {} %}
             {% set low_threshold = 20 %}
-            {% set dead_entities = states.sensor 
+            {% set ignore = state_attr('sensor.battery_type_inventory', 'ignore')
+              | from_json if state_attr('sensor.battery_type_inventory', 'ignore') else [] %}
+            {% set battery_sensors = states.sensor
+              | selectattr('attributes.device_class', 'defined')
               | selectattr('attributes.device_class', 'eq', 'battery')
-              | select('test', 'any', [
-                  ('state', 'in', ['unavailable', 'unknown']),
-                  ('state', 'lt', low_threshold | string)
-                ])
-              | map(attribute='entity_id') | list %}
+              | rejectattr('entity_id', 'in', ignore)
+              | list %}
+            {% set nse = namespace(flagged=[]) %}
+            {% for s in battery_sensors %}
+              {% if s.state in ['unavailable', 'unknown'] %}
+                {% set nse.flagged = nse.flagged + [s.entity_id] %}
+              {% elif s.state | float(100) < low_threshold %}
+                {% set nse.flagged = nse.flagged + [s.entity_id] %}
+              {% endif %}
+            {% endfor %}
+            {% set dead_entities = nse.flagged | unique | list %}
 
             {% set ns = namespace(counts={}) %}
             {% for entity in dead_entities %}
