@@ -1,0 +1,172 @@
+# =============================================================================
+# Battery Status Panel — cb-lcars frame + auto-entities SYMBIONT
+# =============================================================================
+# A bare cb-lcars elbow/header card whose symbiont slot embeds an auto-entities
+# card. Best of both:
+#   - cb-lcars LCARS chrome (stable, matches Ready Room panel)
+#   - auto-entities dynamic discovery (every battery, minus ignore list)
+#   - ignore list read from sensor.battery_type_inventory (single source of
+#     truth) via a Jinja `template:` filter — NEVER hand-edit as you add devices
+#
+# Mirrors the proven symbiont pattern from the Ready Room panel
+# (custom_fields.symbiont.card holding an embedded HA card).
+#
+# Requires: cb-lcars + auto-entities (both installed). card-mod (installed)
+#           restyles the embedded list to LCARS colours/fonts.
+# =============================================================================
+
+type: custom:cb-lcars-elbow-card
+cblcars_card_type: cb-lcars-header
+enable_resize_observer: true
+tap_action:
+  action: none
+double_tap_action:
+  action: none
+hold_action:
+  action: none
+show_label: true
+variables:
+  label: Battery Status
+  card:
+    min_height: '300'
+    color:
+      default: var(--lcars-apricot)
+    border:
+      left:
+        size: 23
+      top:
+        size: 13
+  symbiont:
+    enabled: true
+    imprint_host: true
+    card:
+      padding:
+        top: 7
+        bottom: 23
+        left: 200      # clear the elbow's left border; tune to taste
+        right: 5
+custom_fields:
+  symbiont:
+    card:
+      # ---- the dynamic bit ----
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: entities
+        state_color: true
+        # card-mod restyles the embedded list to fit the LCARS frame.
+        # Transparent so the elbow's background shows through.
+        card_mod:
+          style: |
+            ha-card {
+              background: transparent;
+              border: none;
+              box-shadow: none;
+              max-height: 260px;
+              overflow-y: auto;
+            }
+            .card-content {
+              padding: 0 8px;
+              font-family: "Antonio", sans-serif;
+            }
+      filter:
+        # Jinja template filter: emit every battery sensor EXCEPT the ignore
+        # list held on sensor.battery_type_inventory. Auto-updates forever.
+        template: >
+          {% set raw_ignore = state_attr('sensor.battery_type_inventory', 'ignore') %}
+          {% set ignore = raw_ignore | from_json if raw_ignore is string else (raw_ignore or []) %}
+          {% for s in states.sensor
+              | selectattr('attributes.device_class', 'defined')
+              | selectattr('attributes.device_class', 'eq', 'battery')
+              | rejectattr('entity_id', 'in', ignore)
+              | rejectattr('state', 'in', ['unavailable', 'unknown']) %}
+            {{
+              {
+                'entity': s.entity_id,
+                'type': 'simple-entity'
+              }
+            }},
+          {% endfor %}
+      sort:
+        method: state
+        numeric: true      # lowest battery % floats to the top
+
+# =============================================================================
+# NOTES
+# -----------------------------------------------------------------------------
+# * The `template:` filter must output a comma-separated list of entity dicts
+#   (the trailing comma after each is intentional — auto-entities parses the
+#   whole thing as a YAML/JSON list). This is the documented auto-entities
+#   template-filter idiom.
+#
+# * To INCLUDE unavailable/unknown in the panel, drop the last `rejectattr`.
+#
+# * If `type: simple-entity` rows look wrong inside the symbiont, change the
+#   inner `type` to a plain entities row by removing the per-row `type` from
+#   the template dict (just emit {'entity': s.entity_id}).
+#
+# * Because the ignore logic lives ONLY in sensor.battery_type_inventory, this
+#   panel and sensor.batteries_to_replace can never drift. Editing that one
+#   attribute updates both.
+#
+# * VERIFY on-instance: paste into a Manual card. If auto-entities errors on the
+#   template, test the template alone in Developer Tools > Template first — it
+#   should render a list of `{'entity': ...},` lines.
+# =============================================================================
+
+
+# =============================================================================
+# OPTION 2 — GUARANTEED-WORKING FALLBACK (vertical-stack, no symbiont)
+# =============================================================================
+# If cb-lcars' symbiont slot won't host custom:auto-entities, use this instead:
+# a plain vertical-stack with a cb-lcars header ON TOP of a standalone
+# auto-entities card. Less visually integrated (two stacked cards rather than
+# one framed unit) but does not depend on symbiont accepting a custom card.
+# Same dynamic template filter — identical maintenance-free behaviour.
+# =============================================================================
+
+type: vertical-stack
+cards:
+  - type: custom:cb-lcars-elbow-card
+    cblcars_card_type: cb-lcars-header
+    enable_resize_observer: true
+    show_label: true
+    variables:
+      label: Battery Status
+      card:
+        color:
+          default: var(--lcars-apricot)
+        border:
+          left:
+            size: 23
+          top:
+            size: 13
+  - type: custom:auto-entities
+    show_empty: false
+    card:
+      type: entities
+      state_color: true
+      card_mod:
+        style: |
+          ha-card {
+            background: black;
+            border: 2px solid var(--lcars-apricot, #f90);
+            border-radius: 0;
+            max-height: 260px;
+            overflow-y: auto;
+            font-family: "Antonio", sans-serif;
+          }
+    filter:
+      template: >
+        {% set raw_ignore = state_attr('sensor.battery_type_inventory', 'ignore') %}
+        {% set ignore = raw_ignore | from_json if raw_ignore is string else (raw_ignore or []) %}
+        {% for s in states.sensor
+            | selectattr('attributes.device_class', 'defined')
+            | selectattr('attributes.device_class', 'eq', 'battery')
+            | rejectattr('entity_id', 'in', ignore)
+            | rejectattr('state', 'in', ['unavailable', 'unknown']) %}
+          {{ {'entity': s.entity_id} }},
+        {% endfor %}
+    sort:
+      method: state
+      numeric: true
