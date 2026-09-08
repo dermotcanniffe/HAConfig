@@ -207,8 +207,8 @@ template:
         unique_id: batteries_to_replace
         state: >
           {% set low_threshold = 20 %}
-          {% set ignore = state_attr('sensor.battery_type_inventory', 'ignore')
-            | from_json if state_attr('sensor.battery_type_inventory', 'ignore') else [] %}
+          {% set raw_ignore = state_attr('sensor.battery_type_inventory', 'ignore') %}
+          {% set ignore = raw_ignore | from_json if raw_ignore is string else (raw_ignore or []) %}
           {% set battery_sensors = states.sensor
             | selectattr('attributes.device_class', 'defined')
             | selectattr('attributes.device_class', 'eq', 'battery')
@@ -227,11 +227,11 @@ template:
           {{ ns.flagged | unique | list | count }}
         attributes:
           shopping_list: >
-            {% set inventory = state_attr('sensor.battery_type_inventory', 'lookup')
-              | from_json if state_attr('sensor.battery_type_inventory', 'lookup') else {} %}
+            {% set raw_inv = state_attr('sensor.battery_type_inventory', 'lookup') %}
+            {% set inventory = raw_inv | from_json if raw_inv is string else (raw_inv or {}) %}
             {% set low_threshold = 20 %}
-            {% set ignore = state_attr('sensor.battery_type_inventory', 'ignore')
-              | from_json if state_attr('sensor.battery_type_inventory', 'ignore') else [] %}
+            {% set raw_ignore = state_attr('sensor.battery_type_inventory', 'ignore') %}
+            {% set ignore = raw_ignore | from_json if raw_ignore is string else (raw_ignore or []) %}
             {% set battery_sensors = states.sensor
               | selectattr('attributes.device_class', 'defined')
               | selectattr('attributes.device_class', 'eq', 'battery')
