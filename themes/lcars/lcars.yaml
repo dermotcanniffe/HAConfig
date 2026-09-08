@@ -1853,7 +1853,7 @@
 
         /* -------- Clock -------- */
         &::after {
-          content: "{{ states('sensor.lcars_header') if has_value('sensor.lcars_header') else states('sensor.time') if has_value('sensor.time') else 'LCARS' }}";
+          content: "LCARS {{ states('sensor.lcars_header') if has_value('sensor.lcars_header') else states('sensor.time') if has_value('sensor.time') else 'LCARS' }}";
           color: var(--lcars-ui-app-header-clock);
           visibility: visible;
           font-size: var(--header-font-size);
