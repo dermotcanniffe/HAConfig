@@ -1,0 +1,21 @@
+{
+  "domain": "lcards",
+  "name": "LCARdS",
+  "after_dependencies": [
+    "media_source"
+  ],
+  "codeowners": [
+    "@snootched"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "lovelace"
+  ],
+  "documentation": "https://lcards.unimatrix01.ca",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/snootched/lcards/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "2026.9.0"
+}

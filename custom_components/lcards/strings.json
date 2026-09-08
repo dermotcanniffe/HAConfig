@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LCARdS",
+        "description": "LCARdS will automatically register its frontend resources. Use the Configure button on the integration card to adjust options."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance of LCARdS is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "LCARdS Options",
+        "data": {
+          "show_panel": "Show sidebar panel",
+          "sidebar_title": "Sidebar title",
+          "sidebar_icon": "Sidebar icon",
+          "log_level": "Log level",
+          "enable_previews": "Enable Preview Features"
+        },
+        "data_description": {
+          "show_panel": "Display the LCARdS Config panel in the Home Assistant sidebar.",
+          "sidebar_title": "Label shown in the sidebar. Default: LCARdS Config",
+          "sidebar_icon": "Material Design icon, e.g. mdi:space-invaders. Default: mdi:space-invaders",
+          "log_level": "Controls both frontend (browser console) and backend (HA logger) verbosity. The page URL parameter ?lcards_log_level= overrides this for the current session.",
+          "enable_previews": "Unlocks experimental features that are still under active development. These may change or be removed at any time without notice. For help, see GitHub Issues and Discussions for the LCARdS project."
+        }
+      }
+    }
+  }
+}
