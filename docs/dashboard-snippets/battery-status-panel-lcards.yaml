@@ -1,0 +1,90 @@
+# =============================================================================
+# Battery Status Panel — LCARdS (lcards-data-grid)
+# =============================================================================
+# Native LCARS data grid version, for the LCARdS card system (successor to
+# cb-lcars). Docs: https://github.com/snootched/lcards  ->  doc/cards/data-grid
+#
+# Why this over the auto-entities version:
+#   - Authentic LCARS look (cascade colour animation, theme tokens)
+#   - Per-cell status templates (OK / LOW / CHECK)
+#   - Scrolls on small screens via overflow_y: auto
+#
+# Trade-off: lcards-data-grid uses an explicit `rows:` list — it has NO
+# "match every battery" filter like auto-entities. So you enumerate the
+# batteries you care about. That's a good fit for a curated MSD readout.
+# For a fully auto-populated list, keep the auto-entities version
+# (battery-status-panel.yaml) instead.
+#
+# Threshold: LOW < 20, CHECK if unavailable/unknown, else OK.
+# Rechargeables/storage (Sigen, watch, phone) are simply not listed here —
+# same intent as the `ignore` list on sensor.battery_type_inventory.
+# =============================================================================
+
+type: custom:lcards-data-grid
+data_mode: data
+
+# scroll inside a fixed-height LCARS frame on small screens
+max_height: 320
+overflow_y: auto
+
+rows:
+  # Header row
+  - values: [DEVICE, LEVEL, STATUS]
+    style:
+      color: "var(--lcars-orange)"
+      font_weight: bold
+      align: center
+
+  # One row per replaceable-battery device.
+  # Pattern: [Friendly name, <battery entity>, <status template>]
+  # The status template flags CHECK (unavailable/unknown) or LOW (< 20).
+  - [Alfred the Botler, sensor.alfred_the_botler_battery, "{{ 'CHECK' if states('sensor.alfred_the_botler_battery') in ['unavailable','unknown'] else ('LOW' if states('sensor.alfred_the_botler_battery')|float(100) < 20 else 'OK') }}"]
+  - [Dave Bottista, sensor.dave_bottista_battery, "{{ 'CHECK' if states('sensor.dave_bottista_battery') in ['unavailable','unknown'] else ('LOW' if states('sensor.dave_bottista_battery')|float(100) < 20 else 'OK') }}"]
+  - [Bot 0AA7, sensor.bot_0aa7_battery, "{{ 'CHECK' if states('sensor.bot_0aa7_battery') in ['unavailable','unknown'] else ('LOW' if states('sensor.bot_0aa7_battery')|float(100) < 20 else 'OK') }}"]
+  - [Bot 5D47, sensor.bot_5d47_battery, "{{ 'CHECK' if states('sensor.bot_5d47_battery') in ['unavailable','unknown'] else ('LOW' if states('sensor.bot_5d47_battery')|float(100) < 20 else 'OK') }}"]
+  - [Red Button, sensor.redbutton_battery, "{{ 'CHECK' if states('sensor.redbutton_battery') in ['unavailable','unknown'] else ('LOW' if states('sensor.redbutton_battery')|float(100) < 20 else 'OK') }}"]
+
+grid:
+  grid-template-columns: "1fr 80px 80px"
+  gap: 6px
+
+style:
+  background: "var(--lcars-black, #000)"
+  color: "var(--lcars-moonlight)"
+  font_size: 14
+  font_family: "Antonio, sans-serif"
+  padding: "4px 8px"
+
+columns:
+  - style:
+      align: left        # device name
+  - style:
+      align: right       # level
+  - style:
+      align: center      # status
+
+# Cascade colour sweep on load — the classic LCARS data-readout effect
+animations:
+  - trigger: on_load
+    preset: cascade-color
+    params:
+      pattern: niagara
+
+# Highlight a cell when its value changes (live battery updates)
+animation:
+  highlight_changes: true
+  change_preset: pulse
+  change_duration: 500
+
+
+# =============================================================================
+# NOTE on auto-population:
+# If you want this to track ALL batteries without hand-listing rows, the
+# practical hybrid is:
+#   1) Keep the auto-entities panel (battery-status-panel.yaml) for the full
+#      auto list, OR
+#   2) Build a template sensor that emits the low-battery rows, and reference
+#      its attribute — but lcards-data-grid still needs literal rows, so a
+#      generated dashboard (e.g. via a template) would be required.
+# For a curated MSD glance-panel, the explicit list above is the intended use.
+# =============================================================================
